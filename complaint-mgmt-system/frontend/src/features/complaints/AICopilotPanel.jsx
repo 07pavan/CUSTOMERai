@@ -67,6 +67,14 @@ export default function AICopilotPanel({ showToast }) {
     }
   }, [messages, isLoading]);
 
+  const getErrorMessage = (err) => {
+    if (typeof err?.data === 'string') return err.data;
+    if (err?.data?.detail && typeof err.data.detail === 'string') return err.data.detail;
+    if (err?.data?.message && typeof err.data.message === 'string') return err.data.message;
+    if (err?.message && typeof err.message === 'string') return err.message;
+    return 'Copilot service temporarily unavailable. Please try again.';
+  };
+
   /* ─── Send Text Message ─── */
   const handleSendMessage = async (e) => {
     e?.preventDefault();
@@ -93,7 +101,7 @@ export default function AICopilotPanel({ showToast }) {
         dispatch(patchCorrectionDiff(res.updated_fields));
       }
     } catch (err) {
-      const errText = typeof err?.data === 'string' ? err.data : 'Copilot error occurred.';
+      const errText = getErrorMessage(err);
       dispatch(addMessage({ sender: 'assistant', text: `⚠️ ${errText}` }));
       showToast?.({ type: 'error', message: errText });
     } finally {
@@ -132,7 +140,7 @@ export default function AICopilotPanel({ showToast }) {
         dispatch(patchCorrectionDiff(res.updated_fields));
       }
     } catch (err) {
-      const errText = typeof err?.data === 'string' ? err.data : 'File processing failed.';
+      const errText = getErrorMessage(err);
       dispatch(addMessage({ sender: 'assistant', text: `⚠️ ${errText}` }));
       showToast?.({ type: 'error', message: errText });
     } finally {

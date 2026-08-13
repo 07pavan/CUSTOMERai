@@ -202,8 +202,8 @@ export default function ComplaintDetail({ complaintId, onBack, showToast }) {
         {activeTab === 'Details' && (
           <div className={styles.fieldGrid}>
             <div className={styles.field}>
-              <div className={styles.fieldLabel}>Complainant</div>
-              <div className={styles.fieldValue}>{complaint.complainant_name}</div>
+              <div className={styles.fieldLabel}>Customer Name</div>
+              <div className={styles.fieldValue}>{complaint.customer_name || complaint.complainant_name || '—'}</div>
             </div>
             <div className={styles.field}>
               <div className={styles.fieldLabel}>Contact</div>
@@ -212,24 +212,52 @@ export default function ComplaintDetail({ complaintId, onBack, showToast }) {
                 : <div className={styles.fieldValueMuted}>Anonymous</div>}
             </div>
             <div className={styles.field}>
-              <div className={styles.fieldLabel}>Category</div>
-              <div className={styles.fieldValue}>{CATEGORY_LABELS[complaint.category] ?? complaint.category}</div>
+              <div className={styles.fieldLabel}>Product Strength / Grade</div>
+              <div className={styles.fieldValue}>{complaint.product_strength || '—'}</div>
+            </div>
+            <div className={styles.field}>
+              <div className={styles.fieldLabel}>Affected Quantity</div>
+              <div className={styles.fieldValue}>{complaint.affected_quantity || '—'}</div>
+            </div>
+            <div className={styles.field}>
+              <div className={styles.fieldLabel}>Manufacturing Date</div>
+              <div className={styles.fieldValue}>{complaint.manufacturing_date || '—'}</div>
+            </div>
+            <div className={styles.field}>
+              <div className={styles.fieldLabel}>Expiry Date</div>
+              <div className={styles.fieldValue}>{complaint.expiry_date || '—'}</div>
+            </div>
+            <div className={styles.field}>
+              <div className={styles.fieldLabel}>Originating Site Block</div>
+              <div className={styles.fieldValue}>{complaint.originating_site_block || '—'}</div>
+            </div>
+            <div className={styles.field}>
+              <div className={styles.fieldLabel}>Impacted NPM</div>
+              <div className={styles.fieldValue}>{complaint.impacted_npm || '—'}</div>
+            </div>
+            <div className={styles.field}>
+              <div className={styles.fieldLabel}>Complaint Category</div>
+              <div className={styles.fieldValue}>{CATEGORY_LABELS[complaint.complaint_category || complaint.category] ?? complaint.complaint_category ?? complaint.category ?? '—'}</div>
             </div>
             <div className={styles.field}>
               <div className={styles.fieldLabel}>Source Channel</div>
-              <div className={styles.fieldValue}>{SOURCE_LABELS[complaint.source_type] ?? complaint.source_type}</div>
+              <div className={styles.fieldValue}>{SOURCE_LABELS[complaint.complaint_source || complaint.source_type] ?? complaint.complaint_source ?? complaint.source_type ?? '—'}</div>
             </div>
             <div className={styles.field}>
               <div className={styles.fieldLabel}>Submitted</div>
               <div className={styles.fieldValue}>{formatDateTime(complaint.created_at)}</div>
             </div>
             <div className={styles.field}>
-              <div className={styles.fieldLabel}>Last Updated</div>
-              <div className={styles.fieldValue}>{formatDateTime(complaint.updated_at)}</div>
+              <div className={styles.fieldLabel}>Suggested Next Action</div>
+              <div className={styles.fieldValue}>{complaint.suggested_next_action || '—'}</div>
             </div>
             <div className={`${styles.field} ${styles.fieldFull}`}>
-              <div className={styles.fieldLabel}>Description</div>
-              <p className={styles.description}>{complaint.description}</p>
+              <div className={styles.fieldLabel}>Initial Risk Assessment Rationale</div>
+              <p className={styles.description}>{complaint.initial_risk_assessment || complaint.risk_rationale || '—'}</p>
+            </div>
+            <div className={`${styles.field} ${styles.fieldFull}`}>
+              <div className={styles.fieldLabel}>Complaint Description</div>
+              <p className={styles.description}>{complaint.complaint_description || complaint.description || '—'}</p>
             </div>
           </div>
         )}

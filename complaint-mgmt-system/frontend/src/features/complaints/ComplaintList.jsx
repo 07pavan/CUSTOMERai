@@ -14,6 +14,8 @@ import styles from './ComplaintList.module.css';
 /* ─── Helpers ─── */
 const STATUS_LABELS = {
   new: 'New',
+  pending_triage: 'Pending Triage',
+  ready_to_commit: 'Ready to Commit',
   under_investigation: 'Under Investigation',
   capa_assigned: 'CAPA Assigned',
   closed: 'Closed',
@@ -34,6 +36,8 @@ const SEVERITY_LABELS = {
 
 const STATUS_STYLE = {
   new:                 styles.statusNew,
+  pending_triage:      styles.severityPending,
+  ready_to_commit:     styles.statusNew,
   under_investigation: styles.statusUnder_investigation,
   capa_assigned:       styles.statusCapa_assigned,
   closed:              styles.statusClosed,
@@ -242,18 +246,18 @@ export default function ComplaintList({ onViewComplaint }) {
                         </td>
                         <td>
                           <div className={styles.productName} title={c.product_name}>
-                            {c.product_name}
+                            {c.product_name || 'Unspecified Product'}
                           </div>
-                          <div className={styles.batchNo}>Batch: {c.batch_no}</div>
+                          <div className={styles.batchNo}>Batch: {c.batch_no || 'UNKNOWN'}</div>
                         </td>
                         <td>
-                          <span className={styles.complainant} title={c.complainant_name}>
-                            {c.complainant_name}
+                          <span className={styles.complainant} title={c.customer_name || c.complainant_name}>
+                            {c.customer_name || c.complainant_name || '—'}
                           </span>
                         </td>
-                        <td>{CATEGORY_LABELS[c.category] ?? c.category}</td>
+                        <td>{CATEGORY_LABELS[c.complaint_category || c.category] ?? c.complaint_category ?? c.category ?? '—'}</td>
                         <td><StatusBadge status={c.status} /></td>
-                        <td><SeverityBadge severity={c.severity} /></td>
+                        <td><SeverityBadge severity={c.severity || c.risk_level} /></td>
                         <td><span className={styles.date}>{formatDate(c.created_at)}</span></td>
                         <td>
                           <button
