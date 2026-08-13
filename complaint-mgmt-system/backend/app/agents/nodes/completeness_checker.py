@@ -33,7 +33,12 @@ from app.agents.state import ComplaintState
 logger = logging.getLogger(__name__)
 
 # Required fields for a complaint to be considered actionably complete
-REQUIRED_FIELDS = ["product_name", "batch_no", "complainant_contact", "description"]
+REQUIRED_FIELDS = [
+    ("product_name", "product_name"),
+    ("batch_no", "batch_no"),
+    ("complainant_contact", "complainant_contact"),
+    ("complaint_description", "description"),
+]
 
 PLACEHOLDER_VALUES = {"unknown", "n/a", "na", "none", "unspecified", "not provided", "[none provided]"}
 
@@ -89,35 +94,35 @@ async def completeness_checker_node(state: ComplaintState) -> ComplaintState:
     # -----------------------------------------------------------------------
     # 1. Deterministic Rule Check
     # -----------------------------------------------------------------------
-    for field in REQUIRED_FIELDS:
-        val = extracted.get(field)
+    for primary_field, alias_field in REQUIRED_FIELDS:
+        val = extracted.get(primary_field) or extracted.get(alias_field)
 
         if val is None or (isinstance(val, str) and not val.strip()):
             flags.append({
-                "field": field,
-                "issue": f"Missing required field: {field}",
-                "severity": "HIGH" if field in ("batch_no", "product_name") else "MEDIUM",
+                "field": primary_field,
+                "issue": f"Missing required field: {primary_field}",
+                "severity": "HIGH" if primary_field in ("batch_no", "product_name") else "MEDIUM",
             })
         elif isinstance(val, str) and val.strip().lower() in PLACEHOLDER_VALUES:
             flags.append({
-                "field": field,
-                "issue": f"Placeholder or missing value provided for {field} ('{val.strip()}')",
-                "severity": "HIGH" if field in ("batch_no", "product_name") else "MEDIUM",
+                "field": primary_field,
+                "issue": f"Placeholder or missing value provided for {primary_field} ('{val.strip()}')",
+                "severity": "HIGH" if primary_field in ("batch_no", "product_name") else "MEDIUM",
             })
 
-    # Optional check for complainant_name
-    complainant_name = extracted.get("complainant_name")
-    if not complainant_name or (isinstance(complainant_name, str) and complainant_name.strip().lower() in PLACEHOLDER_VALUES):
+    # Optional check for customer_name / complainant_name
+    customer_name = extracted.get("customer_name") or extracted.get("complainant_name")
+    if not customer_name or (isinstance(customer_name, str) and customer_name.strip().lower() in PLACEHOLDER_VALUES):
         flags.append({
-            "field": "complainant_name",
-            "issue": "Complainant name is missing or anonymous",
+            "field": "customer_name",
+            "issue": "Customer/Complainant name is missing or anonymous",
             "severity": "LOW",
         })
 
     # -----------------------------------------------------------------------
     # 2. Soft LLM Specificity Check (with deterministic fallback heuristic)
     # -----------------------------------------------------------------------
-    description = extracted.get("description")
+    description = extracted.get("complaint_description") or extracted.get("description")
     if description and isinstance(description, str) and len(description.strip()) >= 3:
         desc_lower = description.strip().lower()
         vague_phrases = ["didn't work", "did not work", "felt bad", "bad product", "poor quality", "didn't feel right", "doesn't work"]

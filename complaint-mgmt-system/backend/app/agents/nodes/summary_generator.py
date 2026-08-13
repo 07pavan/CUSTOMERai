@@ -64,8 +64,9 @@ def _heuristic_summary(state: ComplaintState) -> str:
     extracted = state.get("extracted_fields", {})
     product = extracted.get("product_name") or "Pharmaceutical product"
     batch = extracted.get("batch_no") or "unspecified lot"
-    reporter = extracted.get("complainant_name") or "an anonymous reporter"
-    risk = (state.get("risk_level") or "major").upper()
+    reporter = extracted.get("customer_name") or extracted.get("complainant_name") or "an anonymous reporter"
+    risk = (state.get("severity") or state.get("risk_level") or "major").upper()
+    category = extracted.get("complaint_category") or extracted.get("category") or "quality"
     dups = state.get("possible_duplicates", [])
     flags = state.get("completeness_flags", [])
 
@@ -73,7 +74,7 @@ def _heuristic_summary(state: ComplaintState) -> str:
     flag_text = f", {len(flags)} completeness issue(s) identified" if flags else ""
 
     return (
-        f"Complaint logged for {product} (Lot {batch}) reported by {reporter} regarding {extracted.get('category', 'quality')} issues. "
+        f"Complaint logged for {product} (Lot {batch}) reported by {reporter} regarding {category} issues. "
         f"Assessed as [{risk} RISK] based on defect severity and regulatory evaluation. "
         f"Automated screening results:{dup_text}{flag_text}; preliminary investigation dispatched to QA triage."
     )
@@ -93,12 +94,12 @@ async def summary_generator_node(state: ComplaintState) -> ComplaintState:
 
     product_name = extracted.get("product_name") or "Unspecified Product"
     batch_no = extracted.get("batch_no") or "Unspecified Batch"
-    complainant_name = extracted.get("complainant_name") or "Anonymous Reporter"
+    complainant_name = extracted.get("customer_name") or extracted.get("complainant_name") or "Anonymous Reporter"
     complainant_contact = extracted.get("complainant_contact") or "No contact provided"
-    category = extracted.get("category") or "quality"
-    description = extracted.get("description") or state.get("raw_text", "")[:300]
-    risk_level = (state.get("risk_level") or "major").upper()
-    risk_rationale = state.get("risk_rationale") or "Standard QA review."
+    category = extracted.get("complaint_category") or extracted.get("category") or "quality"
+    description = extracted.get("complaint_description") or extracted.get("description") or state.get("raw_text", "")[:300]
+    risk_level = (state.get("severity") or state.get("risk_level") or "major").upper()
+    risk_rationale = state.get("initial_risk_assessment") or state.get("risk_rationale") or "Standard QA review."
 
     completeness_summary = f"{len(flags)} flag(s): " + ", ".join([f.get("issue", "") for f in flags[:2]]) if flags else "None"
     duplicate_summary = f"{len(dups)} potential duplicate match(es) found" if dups else "None detected"
