@@ -19,7 +19,7 @@ import './App.css';
  *   'detail'    → ComplaintDetail (requires selectedId)
  */
 export default function App() {
-  const [view, setView]             = useState('list');
+  const [view, setView]             = useState('form');
   const [selectedId, setSelectedId] = useState(null);
   const { toast, showToast, dismissToast } = useToast();
 

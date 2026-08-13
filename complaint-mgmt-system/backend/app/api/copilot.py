@@ -222,7 +222,6 @@ async def upload_copilot_document(
             complaint_id=complaint.id,
             file_path=rel_path,
             file_type=file.content_type or detected_type,
-            file_size_bytes=file_size,
             extracted_text=extracted_text,
         )
         db.add(doc)
@@ -296,7 +295,6 @@ async def upload_copilot_document(
         complaint_id=complaint.id,
         file_path=rel_path,
         file_type=file.content_type or detected_type,
-        file_size_bytes=file_size,
         extracted_text=extracted_text,
     )
     db.add(doc)
