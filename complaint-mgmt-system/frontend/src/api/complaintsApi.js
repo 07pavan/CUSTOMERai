@@ -273,6 +273,41 @@ export const complaintsApi = createApi({
         };
       },
     }),
+
+    // ------------------------------------------------------------------ //
+    // sendCopilotMessage — POST /api/v1/copilot/message                 //
+    // ------------------------------------------------------------------ //
+    sendCopilotMessage: builder.mutation({
+      query: (payload) => ({
+        url: '/api/v1/copilot/message',
+        method: 'POST',
+        data: payload,
+      }),
+      invalidatesTags: [{ type: 'ComplaintList', id: 'LIST' }],
+    }),
+
+    // ------------------------------------------------------------------ //
+    // uploadCopilotDocument — POST /api/v1/copilot/upload               //
+    // ------------------------------------------------------------------ //
+    uploadCopilotDocument: builder.mutation({
+      query: ({ file, sessionId, complaintId }) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('session_id', sessionId);
+        if (complaintId) {
+          formData.append('complaint_id', complaintId);
+        }
+        return {
+          url: '/api/v1/copilot/upload',
+          method: 'POST',
+          data: formData,
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        };
+      },
+      invalidatesTags: [{ type: 'ComplaintList', id: 'LIST' }],
+    }),
   }),
 });
 
@@ -288,4 +323,6 @@ export const {
   useAssessComplaintMutation,
   useFetchAnalyticsSummaryQuery,
   useExtractIntakeFieldsMutation,
+  useSendCopilotMessageMutation,
+  useUploadCopilotDocumentMutation,
 } = complaintsApi;

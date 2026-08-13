@@ -5,3 +5,19 @@
   min-height: calc(100vh - 3.5rem);
   background: hsl(220, 20%, 96%);
 }
+
+.formCopilotLayout {
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  gap: 1.5rem;
+  max-width: 1320px;
+  margin: 1.5rem auto;
+  padding: 0 1.5rem 3rem;
+  align-items: start;
+}
+
+@media (max-width: 1080px) {
+  .formCopilotLayout {
+    grid-template-columns: 1fr;
+  }
+}

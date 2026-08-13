@@ -43,12 +43,16 @@
 import { configureStore } from '@reduxjs/toolkit';
 
 import complaintsReducer from '../features/complaints/complaintsSlice';
+import complaintFormReducer from '../features/complaints/complaintFormSlice';
+import copilotReducer from '../features/copilot/copilotSlice';
 import { complaintsApi } from '../api/complaintsApi';
 
 export const store = configureStore({
   reducer: {
     // UI / client state
     complaints: complaintsReducer,
+    complaintForm: complaintFormReducer,
+    copilot: copilotReducer,
 
     // RTK Query server cache — key MUST match complaintsApi.reducerPath
     [complaintsApi.reducerPath]: complaintsApi.reducer,

@@ -1,5 +1,14 @@
 import { useState, useCallback, useRef } from 'react';
-import { useAppSelector } from '../../app/hooks';
+import { useAppDispatch, useAppSelector } from '../../app/hooks';
+import {
+  updateField,
+  populateFromAi,
+  resetForm,
+  selectFormValues,
+  selectAiFilledFields,
+  selectLastUpdatedFields,
+  selectStatusBadge,
+} from './complaintFormSlice';
 import {
   useCreateComplaintMutation,
   useUploadDocumentMutation,
@@ -91,37 +100,22 @@ const SEVERITY_OPTIONS = [
   { value: 'minor',    label: 'Minor' },
 ];
 
-const ACCEPTED_FILE_TYPES = '.pdf,.eml,.msg,.jpg,.jpeg,.png,.tiff,.tif';
-
-const INITIAL_FORM = {
-  complaint_source: '',
-  customer_name: '',
-  complainant_contact: '',
-  product_name: '',
-  product_strength: '',
-  batch_no: '',
-  affected_quantity: '',
-  manufacturing_date: '',
-  expiry_date: '',
-  originating_site_block: '',
-  impacted_npm: '',
-  complaint_category: '',
-  complaint_description: '',
-  severity: '',
-  suggested_next_action: '',
-  initial_risk_assessment: '',
-};
-
 /**
  * ComplaintForm — Log Customer Complaint component matching exact 6-section specification.
+ * Uses Redux complaintFormSlice as single source of truth.
  * @param {{ onSuccess?: Function, showToast: Function }} props
  */
 export default function ComplaintForm({ onSuccess, showToast }) {
-  const [form, setForm] = useState(INITIAL_FORM);
+  const dispatch = useAppDispatch();
+  const form = useAppSelector(selectFormValues);
+  const aiFilledFieldsArray = useAppSelector(selectAiFilledFields);
+  const aiFilledFields = new Set(aiFilledFieldsArray);
+  const lastUpdatedFields = useAppSelector(selectLastUpdatedFields);
+  const statusBadge = useAppSelector(selectStatusBadge);
+
   const [errors, setErrors] = useState({});
   const [file, setFile] = useState(null);
   const [dragOver, setDragOver] = useState(false);
-  const [aiFilledFields, setAiFilledFields] = useState(new Set());
   const fileInputRef = useRef(null);
   const fastFillInputRef = useRef(null);
 
@@ -131,8 +125,7 @@ export default function ComplaintForm({ onSuccess, showToast }) {
 
   const isLoading = isCreating || isUploading || isExtracting;
 
-  // Drive "Ready to Commit" vs "Pending Triage" off Redux / form population state
-  const isPopulated = Boolean(
+  const isPopulated = statusBadge === 'Ready to Commit' || Boolean(
     aiFilledFields.size > 0 ||
     (form.product_name && form.batch_no && form.customer_name && form.complaint_description)
   );
@@ -145,42 +138,12 @@ export default function ComplaintForm({ onSuccess, showToast }) {
     try {
       setFile(pickedFile);
       const res = await extractIntakeFields(pickedFile).unwrap();
-      const newAiSet = new Set();
-      const updatedForm = { ...form };
-
-      if (res.product_name) { updatedForm.product_name = res.product_name; newAiSet.add('product_name'); }
-      if (res.product_strength) { updatedForm.product_strength = res.product_strength; newAiSet.add('product_strength'); }
-      if (res.batch_no) { updatedForm.batch_no = res.batch_no; newAiSet.add('batch_no'); }
-      if (res.affected_quantity) { updatedForm.affected_quantity = res.affected_quantity; newAiSet.add('affected_quantity'); }
-      if (res.customer_name || res.complainant_name) {
-        updatedForm.customer_name = res.customer_name || res.complainant_name;
-        newAiSet.add('customer_name');
-      }
-      if (res.complainant_contact) { updatedForm.complainant_contact = res.complainant_contact; newAiSet.add('complainant_contact'); }
-      if (res.complaint_category || res.category) {
-        updatedForm.complaint_category = res.complaint_category || res.category;
-        newAiSet.add('complaint_category');
-      }
-      if (res.complaint_description || res.description) {
-        updatedForm.complaint_description = res.complaint_description || res.description;
-        newAiSet.add('complaint_description');
-      }
-      if (res.suggested_next_action) { updatedForm.suggested_next_action = res.suggested_next_action; newAiSet.add('suggested_next_action'); }
-      if (res.initial_risk_assessment) { updatedForm.initial_risk_assessment = res.initial_risk_assessment; newAiSet.add('initial_risk_assessment'); }
-
-      // Infer email or paper source if applicable
-      if (pickedFile.name.endsWith('.eml') || pickedFile.name.endsWith('.msg')) {
-        updatedForm.complaint_source = 'email';
-        newAiSet.add('complaint_source');
-      }
-
-      setForm(updatedForm);
-      setAiFilledFields(newAiSet);
+      dispatch(populateFromAi(res));
       setErrors({});
 
       showToast({
         type: 'success',
-        message: `AI Fast-Fill extracted ${newAiSet.size} form field(s) from "${pickedFile.name}". Please review pre-filled values before committing.`,
+        message: `AI Fast-Fill extracted form field(s) from "${pickedFile.name}". Please review pre-filled values before committing.`,
         duration: 7000,
       });
     } catch (err) {
@@ -191,9 +154,9 @@ export default function ComplaintForm({ onSuccess, showToast }) {
   /* ─── Field change handler ─── */
   const handleChange = useCallback((e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    dispatch(updateField({ name, value }));
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: '' }));
-  }, [errors]);
+  }, [dispatch, errors]);
 
   /* ─── File handlers ─── */
   const handleFileChange = (e) => {
@@ -293,18 +256,25 @@ export default function ComplaintForm({ onSuccess, showToast }) {
   };
 
   const handleClear = () => {
-    setForm(INITIAL_FORM);
+    dispatch(resetForm());
     setErrors({});
     setFile(null);
-    setAiFilledFields(new Set());
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const inputClass = (name) =>
-    [styles.input, errors[name] ? styles.inputError : ''].filter(Boolean).join(' ');
+    [
+      styles.input,
+      errors[name] ? styles.inputError : '',
+      lastUpdatedFields.includes(name) ? styles.fieldFlash : '',
+    ].filter(Boolean).join(' ');
 
   const selectClass = (name) =>
-    [styles.select, errors[name] ? styles.inputError : ''].filter(Boolean).join(' ');
+    [
+      styles.select,
+      errors[name] ? styles.inputError : '',
+      lastUpdatedFields.includes(name) ? styles.fieldFlash : '',
+    ].filter(Boolean).join(' ');
 
   return (
     <div className={styles.page}>

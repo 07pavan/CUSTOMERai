@@ -5,6 +5,7 @@ import { useToast } from './components/useToast';
 import ComplaintForm from './features/complaints/ComplaintForm';
 import ComplaintList from './features/complaints/ComplaintList';
 import ComplaintDetail from './features/complaints/ComplaintDetail';
+import AICopilotPanel from './features/complaints/AICopilotPanel';
 import Dashboard from './features/dashboard/Dashboard';
 import './App.css';
 
@@ -46,10 +47,17 @@ export default function App() {
         )}
 
         {view === 'form' && (
-          <ComplaintForm
-            showToast={showToast}
-            onSuccess={() => navigate('list')}
-          />
+          <div className="formCopilotLayout">
+            <div className="formColumn">
+              <ComplaintForm
+                showToast={showToast}
+                onSuccess={() => navigate('list')}
+              />
+            </div>
+            <div className="copilotColumn">
+              <AICopilotPanel showToast={showToast} />
+            </div>
+          </div>
         )}
 
         {view === 'detail' && selectedId !== null && (
