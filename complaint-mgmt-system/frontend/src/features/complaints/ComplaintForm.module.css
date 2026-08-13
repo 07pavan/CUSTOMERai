@@ -2,9 +2,9 @@
 
 /* ─── Page shell ─── */
 .page {
-  max-width: 860px;
-  margin: 2rem auto;
-  padding: 0 1.5rem 3rem;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 /* ─── Card ─── */
