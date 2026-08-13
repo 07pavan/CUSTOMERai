@@ -1,0 +1,13 @@
+/**
+ * src/features/README.md
+ *
+ * Place Redux feature slices here, one folder per domain.
+ *
+ * Example structure:
+ *   src/features/
+ *     complaints/
+ *       complaintsSlice.js   ← createSlice + async thunks
+ *       ComplaintsList.jsx   ← feature-specific components
+ *     auth/
+ *       authSlice.js
+ */
