@@ -100,6 +100,8 @@ const SEVERITY_OPTIONS = [
   { value: 'minor',    label: 'Minor' },
 ];
 
+const ACCEPTED_FILE_TYPES = '.pdf,.eml,.msg,.jpg,.jpeg,.png,.tiff,.tif';
+
 /**
  * ComplaintForm — Log Customer Complaint component matching exact 6-section specification.
  * Uses Redux complaintFormSlice as single source of truth.
