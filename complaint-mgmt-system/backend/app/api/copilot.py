@@ -437,12 +437,35 @@ def _sev_to_risk_level(sev: str) -> RiskLevel:
     return RiskLevel.medium
 
 
-def _build_correction_reply(num: str, diff: Dict[str, Any]) -> str:
+def _get_missing_fields_prompt(c: Complaint) -> str:
+    missing_labels = []
+    if not c.customer_name or c.customer_name.strip() in {"Anonymous Reporter", "null", ""}:
+        missing_labels.append("Customer/Reporter Name")
+    if not c.product_name or c.product_name.strip() in {"Unspecified Product", "null", ""}:
+        missing_labels.append("Product Name")
+    if not c.product_strength:
+        missing_labels.append("Product Strength / Grade (e.g., 500mg, 10mg/mL)")
+    if not c.batch_no or c.batch_no.strip() in {"UNKNOWN", "null", ""}:
+        missing_labels.append("Batch / Lot Number")
+    if not c.affected_quantity:
+        missing_labels.append("Affected Quantity (e.g., 48 capsules, 3 vials)")
+    if not c.expiry_date:
+        missing_labels.append("Expiry Date (e.g., 2028-02-28 or 02/2028)")
+
+    if not missing_labels:
+        return "\n\n✨ All key QA fields are now complete! You can review the form on the left and click 'Commit to QMS Ledger'."
+
+    return "\n\n📌 **Missing Details Needed**:\nCould you please tell me:\n• " + "\n• ".join(missing_labels) + "\n\n*(You can reply naturally, e.g. 'Customer is Apollo Pharmacy and quantity is 48 capsules')*"
+
+
+def _build_correction_reply(c: Complaint, diff: Dict[str, Any]) -> str:
+    num = c.complaint_number
+    missing_prompt = _get_missing_fields_prompt(c)
     if not diff:
-        return f"No fields were modified on complaint {num} from your message."
+        return f"No form fields were changed on complaint {num} from your message.{missing_prompt}"
 
     changes = [f"{k} ('{v}')" for k, v in diff.items()]
-    return f"Updated {len(diff)} field(s) on complaint {num}: " + ", ".join(changes) + "."
+    return f"Updated {len(diff)} field(s) on complaint {num}: " + ", ".join(changes) + "." + missing_prompt
 
 
 def _parse_date_safe(val: Any):
