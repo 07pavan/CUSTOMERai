@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { useAppDispatch, useAppSelector } from '../../app/hooks';
 import {
   updateField,
@@ -10,9 +10,12 @@ import {
   selectStatusBadge,
 } from './complaintFormSlice';
 import {
+  selectCopilotComplaintId,
+  resetChat,
+} from '../copilot/copilotSlice';
+import {
   useCreateComplaintMutation,
-  useUploadDocumentMutation,
-  useExtractIntakeFieldsMutation,
+  useUpdateComplaintMutation,
 } from '../../api/complaintsApi';
 import styles from './ComplaintForm.module.css';
 
@@ -47,21 +50,6 @@ const FactoryIcon = () => (
     <path d="M.5 0a.5.5 0 0 0-.5.5v15a.5.5 0 0 0 .5.5h15a.5.5 0 0 0 .5-.5V.5a.5.5 0 0 0-.5-.5H.5zM1 1.5h14v13H1v-13z"/>
   </svg>
 );
-const AttachIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" width="22" height="22">
-    <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
-  </svg>
-);
-const CheckFileIcon = () => (
-  <svg viewBox="0 0 16 16" fill="currentColor" width="15" height="15">
-    <path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 0 1 .02-.022z"/>
-  </svg>
-);
-const XIcon = () => (
-  <svg viewBox="0 0 16 16" fill="currentColor" width="13" height="13">
-    <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
-  </svg>
-);
 const SendIcon = () => (
   <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14">
     <path d="M15.964.686a.5.5 0 0 0-.65-.65L.767 5.855H.766l-.452.18a.5.5 0 0 0-.082.887l.41.26.001.002 4.995 3.178 3.178 4.995.002.002.26.41a.5.5 0 0 0 .886-.083l6-15Zm-1.833 1.89L6.637 10.07l-.215-.338a.5.5 0 0 0-.154-.154l-.338-.215 7.494-7.494 1.178-.471-.47 1.178Z"/>
@@ -86,25 +74,15 @@ const CATEGORY_OPTIONS = [
   { value: 'other',          label: 'Other' },
 ];
 
-const SITE_BLOCK_OPTIONS = [
-  { value: 'Block A — Sterile Parenterals', label: 'Block A — Sterile Parenterals' },
-  { value: 'Block B — Oral Solid Dosage',   label: 'Block B — Oral Solid Dosage' },
-  { value: 'Block C — Packaging & Labeling', label: 'Block C — Packaging & Labeling' },
-  { value: 'Block D — API Synthesis',        label: 'Block D — API Synthesis' },
-  { value: 'Other Site Block',               label: 'Other Site Block' },
-];
-
 const SEVERITY_OPTIONS = [
   { value: 'critical', label: 'Critical' },
   { value: 'major',    label: 'Major' },
   { value: 'minor',    label: 'Minor' },
 ];
 
-const ACCEPTED_FILE_TYPES = '.pdf,.eml,.msg,.jpg,.jpeg,.png,.tiff,.tif';
-
 /**
- * ComplaintForm — Log Customer Complaint component matching exact 6-section specification.
- * Uses Redux complaintFormSlice as single source of truth.
+ * ComplaintForm — Log Customer Complaint component.
+ * Uses Redux complaintFormSlice & copilotSlice as single source of truth.
  * @param {{ onSuccess?: Function, showToast: Function }} props
  */
 export default function ComplaintForm({ onSuccess, showToast }) {
@@ -114,12 +92,14 @@ export default function ComplaintForm({ onSuccess, showToast }) {
   const aiFilledFields = new Set(aiFilledFieldsArray);
   const lastUpdatedFields = useAppSelector(selectLastUpdatedFields);
   const statusBadge = useAppSelector(selectStatusBadge);
+  const copilotComplaintId = useAppSelector(selectCopilotComplaintId);
 
   const [errors, setErrors] = useState({});
 
   const [createComplaint, { isLoading: isCreating }] = useCreateComplaintMutation();
+  const [updateComplaint, { isLoading: isUpdating }] = useUpdateComplaintMutation();
 
-  const isLoading = isCreating;
+  const isLoading = isCreating || isUpdating;
 
   const isPopulated = statusBadge === 'Ready to Commit' || Boolean(
     aiFilledFields.size > 0 ||
@@ -177,7 +157,12 @@ export default function ComplaintForm({ onSuccess, showToast }) {
         }),
       };
 
-      const result = await createComplaint(payload).unwrap();
+      let result;
+      if (copilotComplaintId) {
+        result = await updateComplaint({ id: copilotComplaintId, ...payload }).unwrap();
+      } else {
+        result = await createComplaint(payload).unwrap();
+      }
 
       showToast({
         type: 'success',
@@ -186,6 +171,7 @@ export default function ComplaintForm({ onSuccess, showToast }) {
       });
 
       dispatch(resetForm());
+      dispatch(resetChat());
       setErrors({});
 
       onSuccess?.(result);
@@ -199,6 +185,7 @@ export default function ComplaintForm({ onSuccess, showToast }) {
 
   const handleClear = () => {
     dispatch(resetForm());
+    dispatch(resetChat());
     setErrors({});
   };
 
