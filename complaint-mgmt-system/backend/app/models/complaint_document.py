@@ -21,7 +21,7 @@ Design decisions
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, String, Text, func
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from typing import Optional
 
@@ -31,7 +31,7 @@ from app.models.base import Base
 class ComplaintDocument(Base):
     __tablename__ = "complaint_documents"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
     # ------------------------------------------------------------------ #
     # Foreign key                                                          #

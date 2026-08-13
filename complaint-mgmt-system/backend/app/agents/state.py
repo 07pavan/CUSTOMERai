@@ -42,4 +42,8 @@ class ComplaintState(TypedDict, total=False):
     root_cause_suggestion: Optional[str]
     capa_suggestion: Optional[str]
     summary: Optional[str]
+    field_diff: Optional[Dict[str, Any]]
+    is_correction: Optional[bool]
+    correction_message: Optional[str]
+    incoming_message: Optional[str]
     error: Optional[str]

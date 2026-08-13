@@ -14,6 +14,7 @@ from fastapi import APIRouter
 from app.api.analytics   import router as analytics_router
 from app.api.assessments import router as assessments_router
 from app.api.complaints  import router as complaints_router
+from app.api.copilot     import router as copilot_router
 from app.api.documents   import router as documents_router
 
 api_router = APIRouter(prefix="/api/v1")
@@ -22,3 +23,4 @@ api_router.include_router(complaints_router)
 api_router.include_router(documents_router)
 api_router.include_router(assessments_router)
 api_router.include_router(analytics_router)
+api_router.include_router(copilot_router)

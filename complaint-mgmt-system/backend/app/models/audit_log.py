@@ -37,7 +37,7 @@ Design decisions — 21 CFR Part 11 alignment
 from datetime import datetime
 from typing import Any, Optional
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, JSON, String, func
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, JSON, String, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -49,7 +49,7 @@ JSON_TYPE = JSONB().with_variant(JSON, "sqlite")
 class AuditLog(Base):
     __tablename__ = "audit_log"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
     # ------------------------------------------------------------------ #
     # Foreign key                                                          #

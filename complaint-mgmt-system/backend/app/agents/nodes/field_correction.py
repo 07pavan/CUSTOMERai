@@ -20,6 +20,7 @@ from typing import Any, Dict
 
 from app.agents.llm import acall_gemma, acall_json, call_gemma, call_json
 from app.agents.state import ComplaintState
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -87,8 +88,14 @@ async def field_correction_node(state: ComplaintState) -> ComplaintState:
     correction_message = (state.get("correction_message") or state.get("incoming_message") or state.get("raw_text") or "").strip()
 
     if not correction_message:
-        state["field_diff"] = {}
-        return state
+        return {"field_diff": {}, "extracted_fields": existing_fields}
+
+    if not settings.GROQ_API_KEY:
+        logger.info("GROQ_API_KEY unconfigured. Using heuristic field correction.")
+        cleaned_diff = _heuristic_correction_diff(correction_message)
+        merged_fields = {**existing_fields, **cleaned_diff}
+        _sync_aliases(merged_fields)
+        return {"field_diff": cleaned_diff, "extracted_fields": merged_fields}
 
     user_prompt = FIELD_CORRECTION_USER_TEMPLATE.format(
         existing_fields_json=json.dumps(existing_fields, indent=2),
@@ -104,24 +111,18 @@ async def field_correction_node(state: ComplaintState) -> ComplaintState:
         )
 
         cleaned_diff = _filter_and_clean_diff(raw_diff)
-        state["field_diff"] = cleaned_diff
-
-        # Merge diff into extracted_fields
         merged_fields = {**existing_fields, **cleaned_diff}
         _sync_aliases(merged_fields)
-        state["extracted_fields"] = merged_fields
 
         logger.info("field_correction_node completed: diff=%s", list(cleaned_diff.keys()))
-        return state
+        return {"field_diff": cleaned_diff, "extracted_fields": merged_fields}
 
     except Exception as exc:
-        logger.warning("field_correction_node LLM error: %s. Using heuristic regex fallback.", exc)
+        logger.warning("field_correction_node LLM error: %s. Using heuristic fallback.", exc)
         cleaned_diff = _heuristic_correction_diff(correction_message)
-        state["field_diff"] = cleaned_diff
         merged_fields = {**existing_fields, **cleaned_diff}
         _sync_aliases(merged_fields)
-        state["extracted_fields"] = merged_fields
-        return state
+        return {"field_diff": cleaned_diff, "extracted_fields": merged_fields}
 
 
 def field_correction_node_sync(state: ComplaintState) -> ComplaintState:
@@ -132,8 +133,13 @@ def field_correction_node_sync(state: ComplaintState) -> ComplaintState:
     correction_message = (state.get("correction_message") or state.get("incoming_message") or state.get("raw_text") or "").strip()
 
     if not correction_message:
-        state["field_diff"] = {}
-        return state
+        return {"field_diff": {}, "extracted_fields": existing_fields}
+
+    if not settings.GROQ_API_KEY:
+        cleaned_diff = _heuristic_correction_diff(correction_message)
+        merged_fields = {**existing_fields, **cleaned_diff}
+        _sync_aliases(merged_fields)
+        return {"field_diff": cleaned_diff, "extracted_fields": merged_fields}
 
     user_prompt = FIELD_CORRECTION_USER_TEMPLATE.format(
         existing_fields_json=json.dumps(existing_fields, indent=2),
@@ -149,20 +155,16 @@ def field_correction_node_sync(state: ComplaintState) -> ComplaintState:
         )
 
         cleaned_diff = _filter_and_clean_diff(raw_diff)
-        state["field_diff"] = cleaned_diff
         merged_fields = {**existing_fields, **cleaned_diff}
         _sync_aliases(merged_fields)
-        state["extracted_fields"] = merged_fields
-        return state
+        return {"field_diff": cleaned_diff, "extracted_fields": merged_fields}
 
     except Exception as exc:
         logger.warning("field_correction_node_sync LLM error: %s. Using heuristic fallback.", exc)
         cleaned_diff = _heuristic_correction_diff(correction_message)
-        state["field_diff"] = cleaned_diff
         merged_fields = {**existing_fields, **cleaned_diff}
         _sync_aliases(merged_fields)
-        state["extracted_fields"] = merged_fields
-        return state
+        return {"field_diff": cleaned_diff, "extracted_fields": merged_fields}
 
 
 # ---------------------------------------------------------------------------
@@ -194,14 +196,24 @@ def _heuristic_correction_diff(msg: str) -> Dict[str, Any]:
     diff = {}
 
     # Check for batch number pattern
-    batch_match = re.search(r'(?:batch|lot)(?:\s+number|\s+no|\s+#)?\s+(?:is\s+)?([A-Z0-9\-_]{4,20})', msg, re.IGNORECASE)
+    batch_match = re.search(r'(?:batch|lot)(?:\s+number|\s+no|\s+#)?\s+(?:is\s+)?([A-Z0-9\-_]{4,25})', msg, re.IGNORECASE)
     if batch_match:
-        diff["batch_no"] = batch_match.group(1).upper()
+        diff["batch_no"] = batch_match.group(1).strip().upper()
 
     # Check for affected quantity pattern
-    qty_match = re.search(r'(?:affected\s+quantity|quantity|qty)\s+(?:is\s+)?(\d+\s*[a-z]+)', msg, re.IGNORECASE)
+    qty_match = re.search(r'(?:affected\s+quantity|quantity|qty)\s+(?:is\s+)?(\d+(?:\s*[a-zA-Z]+)?)', msg, re.IGNORECASE)
     if qty_match:
         diff["affected_quantity"] = qty_match.group(1).strip()
+
+    # Check for customer name pattern
+    name_match = re.search(r'(?:customer\s+name|reporter|complainant)\s+(?:is\s+)?([A-Za-z\s]{3,30})', msg, re.IGNORECASE)
+    if name_match:
+        diff["customer_name"] = name_match.group(1).strip()
+
+    # Check for product name pattern
+    prod_match = re.search(r'(?:product\s+name|product)\s+(?:is\s+)?([A-Za-z0-9\s]{3,30})', msg, re.IGNORECASE)
+    if prod_match:
+        diff["product_name"] = prod_match.group(1).strip()
 
     return diff
 

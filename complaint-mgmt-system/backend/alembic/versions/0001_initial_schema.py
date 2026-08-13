@@ -107,7 +107,7 @@ def upgrade() -> None:
     # ------------------------------------------------------------------
     op.create_table(
         "complaints",
-        sa.Column("id", sa.BigInteger(), primary_key=True, autoincrement=True),
+        sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
         sa.Column(
             "complaint_number",
             sa.String(20),
@@ -180,7 +180,7 @@ def upgrade() -> None:
     # ------------------------------------------------------------------
     op.create_table(
         "complaint_documents",
-        sa.Column("id", sa.BigInteger(), primary_key=True, autoincrement=True),
+        sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
         sa.Column(
             "complaint_id",
             sa.BigInteger(),
@@ -220,7 +220,7 @@ def upgrade() -> None:
     # ------------------------------------------------------------------
     op.create_table(
         "ai_assessments",
-        sa.Column("id", sa.BigInteger(), primary_key=True, autoincrement=True),
+        sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
         sa.Column(
             "complaint_id",
             sa.BigInteger(),
@@ -283,7 +283,7 @@ def upgrade() -> None:
     # ------------------------------------------------------------------
     op.create_table(
         "audit_log",
-        sa.Column("id", sa.BigInteger(), primary_key=True, autoincrement=True),
+        sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
         sa.Column(
             "complaint_id",
             sa.BigInteger(),

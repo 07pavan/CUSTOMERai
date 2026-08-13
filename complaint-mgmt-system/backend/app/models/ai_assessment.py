@@ -39,7 +39,7 @@ Design decisions
 from datetime import datetime
 from typing import Any, Optional
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, JSON, String, Text, func
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, JSON, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import Enum as SAEnum
@@ -53,7 +53,7 @@ JSON_TYPE = JSONB().with_variant(JSON, "sqlite")
 class AIAssessment(Base):
     __tablename__ = "ai_assessments"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
     # ------------------------------------------------------------------ #
     # Foreign keys                                                         #

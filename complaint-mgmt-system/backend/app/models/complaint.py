@@ -8,7 +8,7 @@ from datetime import date, datetime
 from typing import Optional
 
 from sqlalchemy import (
-    BigInteger, Date, DateTime, Enum as SAEnum,
+    BigInteger, Date, DateTime, Enum as SAEnum, Integer,
     String, Text, UniqueConstraint, func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -34,7 +34,7 @@ class Complaint(Base):
     # Primary key & Identifier                                             #
     # ------------------------------------------------------------------ #
     id: Mapped[int] = mapped_column(
-        BigInteger, primary_key=True, autoincrement=True
+        Integer, primary_key=True, autoincrement=True
     )
 
     complaint_number: Mapped[str] = mapped_column(
