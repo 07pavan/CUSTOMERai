@@ -1,0 +1,450 @@
+/* src/features/complaints/ComplaintForm.module.css */
+
+/* ─── Page shell ─── */
+.page {
+  max-width: 860px;
+  margin: 2rem auto;
+  padding: 0 1.5rem 3rem;
+}
+
+/* ─── Card ─── */
+.card {
+  background: #fff;
+  border: 1px solid hsl(220, 15%, 88%);
+  border-radius: 0.875rem;
+  box-shadow:
+    0 1px 2px hsl(220 20% 12% / 0.04),
+    0 4px 20px hsl(220 20% 12% / 0.06);
+  overflow: hidden;
+}
+
+/* ─── Card header ─── */
+.header {
+  padding: 1.625rem 2rem;
+  border-bottom: 1px solid hsl(220, 15%, 92%);
+  background: hsl(220, 30%, 99%);
+}
+
+.headerMeta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.625rem;
+}
+
+.headerBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: hsl(220, 80%, 45%);
+  background: hsl(220, 90%, 95%);
+  border: 1px solid hsl(220, 80%, 85%);
+  padding: 0.25rem 0.625rem;
+  border-radius: 999px;
+}
+
+.headerBadgeDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.title {
+  font-size: 1.3125rem;
+  font-weight: 700;
+  color: hsl(220, 20%, 10%);
+  letter-spacing: -0.02em;
+  margin: 0 0 0.25rem;
+  line-height: 1.3;
+}
+
+.subtitle {
+  font-size: 0.875rem;
+  color: hsl(220, 10%, 50%);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ─── Form body ─── */
+.body {
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2.25rem;
+}
+
+/* ─── Section ─── */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 1.125rem;
+}
+
+.sectionLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: hsl(220, 10%, 52%);
+  padding-bottom: 0.625rem;
+  border-bottom: 1px solid hsl(220, 15%, 93%);
+}
+
+.sectionIcon {
+  width: 0.875rem;
+  height: 0.875rem;
+  color: hsl(220, 10%, 65%);
+}
+
+/* ─── Two-column grid ─── */
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+
+@media (max-width: 600px) {
+  .grid { grid-template-columns: 1fr; }
+}
+
+/* ─── Field ─── */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.fieldFull {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: hsl(220, 15%, 28%);
+  line-height: 1;
+}
+
+.aiBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: hsl(270, 75%, 45%);
+  background: hsl(270, 60%, 94%);
+  border: 1px solid hsl(270, 50%, 84%);
+  padding: 0.15rem 0.45rem;
+  border-radius: 0.375rem;
+  margin-left: 0.5rem;
+}
+
+.fastFillCard {
+  background: linear-gradient(135deg, hsl(270, 50%, 98%), hsl(250, 60%, 99%));
+  border: 1.5px dashed hsl(270, 50%, 80%);
+  border-radius: 0.75rem;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.fastFillTitle {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: hsl(270, 75%, 38%);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.fastFillSub {
+  font-size: 0.8125rem;
+  color: hsl(220, 10%, 48%);
+  margin-top: 0.2rem;
+}
+
+.required {
+  color: hsl(0, 78%, 55%);
+  margin-left: 0.15em;
+  font-weight: 700;
+}
+
+/* ─── Inputs ─── */
+.input,
+.select,
+.textarea {
+  width: 100%;
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  color: hsl(220, 20%, 10%);
+  background: #fff;
+  border: 1.5px solid hsl(220, 15%, 84%);
+  border-radius: 0.5rem;
+  outline: none;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.input {
+  height: 2.625rem;
+  padding: 0 0.875rem;
+}
+
+.select {
+  height: 2.625rem;
+  padding: 0 2.25rem 0 0.875rem;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%236b7280' d='M8 10.94 2.53 5.47l.94-.94L8 9.06l4.53-4.53.94.94L8 10.94z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1rem;
+}
+
+.textarea {
+  padding: 0.75rem 0.875rem;
+  min-height: 7.5rem;
+  resize: vertical;
+  line-height: 1.65;
+}
+
+.input:focus,
+.select:focus,
+.textarea:focus {
+  border-color: hsl(220, 90%, 56%);
+  box-shadow: 0 0 0 3px hsl(220, 90%, 56% / 0.14);
+}
+
+.input::placeholder,
+.textarea::placeholder {
+  color: hsl(220, 10%, 68%);
+  font-size: 0.9rem;
+}
+
+.inputError {
+  border-color: hsl(0, 78%, 58%) !important;
+  box-shadow: 0 0 0 3px hsl(0, 78%, 58% / 0.12) !important;
+}
+
+.errorMsg {
+  font-size: 0.75rem;
+  color: hsl(0, 70%, 45%);
+  font-weight: 500;
+  margin-top: 0.125rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* ─── Hint text ─── */
+.hint {
+  font-size: 0.75rem;
+  color: hsl(220, 10%, 58%);
+  margin-top: 0.125rem;
+}
+
+/* ─── File upload zone ─── */
+.uploadZone {
+  border: 1.5px dashed hsl(220, 15%, 80%);
+  border-radius: 0.625rem;
+  padding: 1.75rem 1.5rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 160ms ease;
+  background: hsl(220, 25%, 99%);
+  position: relative;
+}
+
+.uploadZone:hover,
+.uploadZone.dragOver {
+  border-color: hsl(220, 90%, 56%);
+  background: hsl(220, 90%, 98%);
+}
+
+.uploadZone input[type='file'] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+
+.uploadIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.5rem;
+  background: hsl(220, 15%, 93%);
+  color: hsl(220, 10%, 55%);
+  margin-bottom: 0.75rem;
+}
+
+.uploadText {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: hsl(220, 20%, 25%);
+  margin-bottom: 0.25rem;
+}
+
+.uploadText span {
+  color: hsl(220, 90%, 52%);
+}
+
+.uploadHint {
+  font-size: 0.75rem;
+  color: hsl(220, 10%, 58%);
+}
+
+/* ─── Uploaded file pill ─── */
+.uploadedFile {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.625rem 0.875rem;
+  background: hsl(145, 50%, 96%);
+  border: 1px solid hsl(145, 50%, 80%);
+  border-radius: 0.5rem;
+  font-size: 0.8125rem;
+  color: hsl(145, 60%, 25%);
+  font-weight: 500;
+  margin-top: 0.75rem;
+}
+
+.uploadedFileIcon {
+  color: hsl(145, 65%, 38%);
+  flex-shrink: 0;
+}
+
+.uploadedFileName {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.removeFile {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  color: hsl(145, 35%, 45%);
+  opacity: 0.7;
+  transition: opacity 120ms;
+  flex-shrink: 0;
+}
+
+.removeFile:hover { opacity: 1; }
+
+/* ─── Card footer / actions ─── */
+.footer {
+  padding: 1.25rem 2rem;
+  border-top: 1px solid hsl(220, 15%, 92%);
+  background: hsl(220, 25%, 99%);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.footerNote {
+  font-size: 0.75rem;
+  color: hsl(220, 10%, 58%);
+}
+
+.footerNote strong {
+  color: hsl(0, 78%, 55%);
+}
+
+.actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.btnGhost {
+  height: 2.5rem;
+  padding: 0 1.125rem;
+  border: 1.5px solid hsl(220, 15%, 85%);
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  color: hsl(220, 15%, 40%);
+  background: #fff;
+  cursor: pointer;
+  transition: all 140ms;
+  letter-spacing: 0.01em;
+}
+
+.btnGhost:hover {
+  background: hsl(220, 20%, 97%);
+  border-color: hsl(220, 15%, 72%);
+  color: hsl(220, 20%, 20%);
+}
+
+.btnPrimary {
+  height: 2.5rem;
+  padding: 0 1.375rem;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  font-family: var(--font-sans);
+  color: #fff;
+  background: hsl(220, 90%, 56%);
+  cursor: pointer;
+  transition: all 140ms;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  letter-spacing: 0.01em;
+  box-shadow: 0 1px 2px hsl(220, 90%, 40% / 0.25);
+}
+
+.btnPrimary:hover:not(:disabled) {
+  background: hsl(220, 90%, 49%);
+  box-shadow: 0 2px 8px hsl(220, 90%, 40% / 0.35);
+  transform: translateY(-1px);
+}
+
+.btnPrimary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btnPrimary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* ─── Spinner ─── */
+.spinner {
+  width: 0.875rem;
+  height: 0.875rem;
+  border: 2px solid hsl(0, 0%, 100% / 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
