@@ -101,10 +101,19 @@ def intent_router(state: ComplaintState) -> str:
     raw = (state.get("raw_text") or state.get("incoming_message") or "").strip().lower()
     if state.get("complaint_id") or state.get("extracted_fields"):
         correction_keywords = [
+            # original
             "sorry", "correction", "actually", "batch number is", "lot is",
-            "quantity is", "change", "update batch", "correct the", "wrong quantity"
+            "quantity is", "change", "update batch", "correct the", "wrong quantity",
+            # date-fill keywords (Bug 3 fix)
+            "manufacturing", "expiry", "expiration", "mfg date", "exp date",
+            "manufacture date", "manufacturing date", "expiry date", "date is",
+            "mfg is", "exp is", "manufactured on", "expires on", "expires",
+            "manufacture", "mfd", "mfg", "exp",
+            # general field updates
+            "customer is", "customer name", "product is", "product name",
+            "strength is", "grade is", "source is",
         ]
-        if any(kw in raw for kw in correction_keywords) and len(raw) < 150:
+        if any(kw in raw for kw in correction_keywords) and len(raw) < 300:
             return "correction"
 
     return "new_complaint"
@@ -202,9 +211,16 @@ async def run_complaint_pipeline(
 async def apply_correction(
     existing_fields: Dict[str, Any],
     correction_message: str,
+    chat_history: Optional[list] = None,
 ) -> Dict[str, Any]:
     """
     Applies a user correction message to an existing extracted_fields dictionary.
+
+    Parameters
+    ----------
+    existing_fields    : Current complaint field values.
+    correction_message : User's natural language correction/update.
+    chat_history       : Recent conversation turns for LLM context (optional).
 
     Returns
     -------
@@ -220,6 +236,7 @@ async def apply_correction(
         "raw_text": correction_message,
         "extracted_fields": existing_fields or {},
         "field_diff": {},
+        "chat_history": chat_history or [],
     }
 
     graph = build_complaint_graph()

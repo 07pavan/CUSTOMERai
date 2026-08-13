@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useAppDispatch, useAppSelector } from '../../app/hooks';
 import {
   addMessage,
@@ -10,7 +10,7 @@ import {
   setComplaintId,
   setLoading,
 } from '../copilot/copilotSlice';
-import { patchCorrectionDiff, populateFromAi } from './complaintFormSlice';
+import { patchCorrectionDiff, populateFromAi, resetForm } from './complaintFormSlice';
 import {
   useSendCopilotMessageMutation,
   useUploadCopilotDocumentMutation,
@@ -42,11 +42,53 @@ const DocumentIcon = () => (
   </svg>
 );
 
+const CommitIcon = () => (
+  <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14">
+    <path d="M11.75 4.5a.75.75 0 0 1 .75.75v5.5a.75.75 0 0 1-1.5 0v-5.5a.75.75 0 0 1 .75-.75zm-7.5 0a.75.75 0 0 1 .75.75v5.5a.75.75 0 0 1-1.5 0v-5.5A.75.75 0 0 1 4.25 4.5zM8 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/>
+  </svg>
+);
+
 /**
- * AICopilotPanel — Persistent chat panel labeled "CUSTOMER AI-Copilot".
- * @param {{ showToast: Function }} props
+ * Render AI assistant message text as rich markdown-lite:
+ * - **bold** → <strong>
+ * - • bullets → structured list
+ * - line breaks preserved
  */
-export default function AICopilotPanel({ showToast }) {
+function RichText({ text }) {
+  if (!text) return null;
+
+  const lines = text.split('\n');
+  const elements = [];
+
+  lines.forEach((line, i) => {
+    // Bold: **text**
+    const parts = line.split(/\*\*(.*?)\*\*/g);
+    const rendered = parts.map((part, j) =>
+      j % 2 === 1 ? <strong key={j}>{part}</strong> : part
+    );
+
+    const isBullet = line.trim().startsWith('•') || line.trim().startsWith('-') || line.trim().startsWith('*');
+    if (isBullet) {
+      elements.push(
+        <div key={i} style={{ paddingLeft: '0.75rem', marginBottom: '0.15rem' }}>
+          {rendered}
+        </div>
+      );
+    } else if (line.trim() === '') {
+      elements.push(<div key={i} style={{ height: '0.4rem' }} />);
+    } else {
+      elements.push(<div key={i}>{rendered}</div>);
+    }
+  });
+
+  return <>{elements}</>;
+}
+
+/**
+ * AICopilotPanel — persistent chat panel that fills the form and submits it.
+ * @param {{ showToast: Function, onSubmitRequest?: Function }} props
+ */
+export default function AICopilotPanel({ showToast, onSubmitRequest }) {
   const dispatch = useAppDispatch();
   const messages = useAppSelector(selectCopilotMessages);
   const sessionId = useAppSelector(selectCopilotSessionId);
@@ -54,18 +96,31 @@ export default function AICopilotPanel({ showToast }) {
   const isLoading = useAppSelector(selectCopilotIsLoading);
 
   const [inputMessage, setInputMessage] = useState('');
+  const [canSubmit, setCanSubmit] = useState(false);
   const threadRef = useRef(null);
   const fileInputRef = useRef(null);
+  const inputRef = useRef(null);
 
   const [sendCopilotMessage] = useSendCopilotMessageMutation();
   const [uploadCopilotDocument] = useUploadCopilotDocumentMutation();
 
-  // Scroll to bottom when new messages arrive
+  // Auto-scroll to bottom on new messages
   useEffect(() => {
     if (threadRef.current) {
       threadRef.current.scrollTop = threadRef.current.scrollHeight;
     }
   }, [messages, isLoading]);
+
+  // Detect when form is ready to submit (all QA fields complete)
+  useEffect(() => {
+    const lastAiMessage = [...messages].reverse().find(m => m.sender === 'assistant');
+    if (lastAiMessage?.text) {
+      const isComplete = lastAiMessage.text.includes('All key QA fields are now complete') ||
+                         lastAiMessage.text.includes('✨') ||
+                         lastAiMessage.text.includes('Commit to QMS Ledger');
+      setCanSubmit(isComplete && !!complaintId);
+    }
+  }, [messages, complaintId]);
 
   const getErrorMessage = (err) => {
     if (typeof err?.data === 'string') return err.data;
@@ -75,11 +130,62 @@ export default function AICopilotPanel({ showToast }) {
     return 'Copilot service temporarily unavailable. Please try again.';
   };
 
+  /* ─── Handle action=submit from backend ─── */
+  const handleActionSubmit = useCallback(() => {
+    // Click the form's submit button programmatically
+    const submitBtn = document.getElementById('submit-complaint-btn');
+    if (submitBtn) {
+      submitBtn.click();
+    } else if (onSubmitRequest) {
+      onSubmitRequest();
+    }
+  }, [onSubmitRequest]);
+
+  /* ─── Process API response (shared between text + file) ─── */
+  const processResponse = useCallback((res) => {
+    dispatch(addMessage({ sender: 'assistant', text: res.reply_text }));
+
+    // New complaint created (has extracted_fields) — populate the whole form
+    if (res.extracted_fields && Object.keys(res.extracted_fields).length > 0) {
+      dispatch(populateFromAi(res));
+      if (res.complaint_id) {
+        dispatch(setComplaintId(res.complaint_id));
+      }
+    }
+    // Correction / fill-in diff (has updated_fields)
+    else if (res.updated_fields && Object.keys(res.updated_fields).length > 0) {
+      dispatch(patchCorrectionDiff(res.updated_fields));
+    }
+
+    // If complaint_id just came back and we didn't have one yet
+    if (!complaintId && res.complaint_id) {
+      dispatch(setComplaintId(res.complaint_id));
+    }
+
+    // Check if all fields are complete
+    if (
+      res.reply_text?.includes('All key QA fields are now complete') ||
+      res.reply_text?.includes('✨')
+    ) {
+      setCanSubmit(true);
+    }
+
+    // Backend is telling us to submit
+    if (res.action === 'submit') {
+      setTimeout(() => handleActionSubmit(), 600);
+    }
+  }, [complaintId, dispatch, handleActionSubmit]);
+
   /* ─── Send Text Message ─── */
   const handleSendMessage = async (e) => {
     e?.preventDefault();
     const text = inputMessage.trim();
     if (!text || isLoading) return;
+
+    const historySnapshot = messages.slice(-10).map((m) => ({
+      role: m.sender === 'user' ? 'user' : 'assistant',
+      content: m.text,
+    }));
 
     setInputMessage('');
     dispatch(addMessage({ sender: 'user', text }));
@@ -90,16 +196,36 @@ export default function AICopilotPanel({ showToast }) {
         session_id: sessionId,
         message: text,
         complaint_id: complaintId,
+        chat_history: historySnapshot,
       }).unwrap();
 
-      dispatch(addMessage({ sender: 'assistant', text: res.reply_text }));
+      processResponse(res);
+    } catch (err) {
+      const errText = getErrorMessage(err);
+      dispatch(addMessage({ sender: 'assistant', text: `⚠️ ${errText}` }));
+      showToast?.({ type: 'error', message: errText });
+    } finally {
+      dispatch(setLoading(false));
+      inputRef.current?.focus();
+    }
+  };
 
-      if (!complaintId && res.complaint_id) {
-        dispatch(setComplaintId(res.complaint_id));
-        dispatch(populateFromAi(res));
-      } else if (complaintId && res.updated_fields) {
-        dispatch(patchCorrectionDiff(res.updated_fields));
-      }
+  /* ─── Quick-send: submit intent from button ─── */
+  const handleQuickSubmit = async () => {
+    if (isLoading) return;
+    const text = 'submit';
+    dispatch(addMessage({ sender: 'user', text: '📤 Submit complaint to QMS Ledger' }));
+    dispatch(setLoading(true));
+
+    try {
+      const res = await sendCopilotMessage({
+        session_id: sessionId,
+        message: text,
+        complaint_id: complaintId,
+        chat_history: [],
+      }).unwrap();
+
+      processResponse(res);
     } catch (err) {
       const errText = getErrorMessage(err);
       dispatch(addMessage({ sender: 'assistant', text: `⚠️ ${errText}` }));
@@ -114,14 +240,12 @@ export default function AICopilotPanel({ showToast }) {
     const file = e.target.files?.[0];
     if (!file || isLoading) return;
 
-    dispatch(
-      addMessage({
-        sender: 'user',
-        text: `Uploaded document: ${file.name}`,
-        isDocument: true,
-        fileName: file.name,
-      })
-    );
+    dispatch(addMessage({
+      sender: 'user',
+      text: `Uploaded document: ${file.name}`,
+      isDocument: true,
+      fileName: file.name,
+    }));
     dispatch(setLoading(true));
 
     try {
@@ -131,14 +255,7 @@ export default function AICopilotPanel({ showToast }) {
         complaintId,
       }).unwrap();
 
-      dispatch(addMessage({ sender: 'assistant', text: res.reply_text }));
-
-      if (!complaintId && res.complaint_id) {
-        dispatch(setComplaintId(res.complaint_id));
-        dispatch(populateFromAi(res));
-      } else if (complaintId && res.updated_fields) {
-        dispatch(patchCorrectionDiff(res.updated_fields));
-      }
+      processResponse(res);
     } catch (err) {
       const errText = getErrorMessage(err);
       dispatch(addMessage({ sender: 'assistant', text: `⚠️ ${errText}` }));
@@ -147,6 +264,12 @@ export default function AICopilotPanel({ showToast }) {
       dispatch(setLoading(false));
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
+  };
+
+  const handleNewChat = () => {
+    dispatch(resetChat());
+    dispatch(resetForm());
+    setCanSubmit(false);
   };
 
   return (
@@ -158,14 +281,14 @@ export default function AICopilotPanel({ showToast }) {
             <SparklesIcon />
           </div>
           <div>
-            <h3 className={styles.title}>CUSTOMER AI-Copilot</h3>
-            <p className={styles.subtitle}>Drop complaint files or paste text below.</p>
+            <h3 className={styles.title}>AIVOA Copilot</h3>
+            <p className={styles.subtitle}>AI-powered QMS complaint assistant</p>
           </div>
         </div>
         <button
           type="button"
           className={styles.resetBtn}
-          onClick={() => dispatch(resetChat())}
+          onClick={handleNewChat}
           title="New session"
         >
           New Chat
@@ -198,7 +321,12 @@ export default function AICopilotPanel({ showToast }) {
                   <DocumentIcon /> {msg.fileName}
                 </div>
               )}
-              <div>{msg.text}</div>
+              <div>
+                {msg.sender === 'assistant'
+                  ? <RichText text={msg.text} />
+                  : msg.text
+                }
+              </div>
               <span className={styles.timestamp}>{msg.timestamp}</span>
             </div>
           </div>
@@ -217,6 +345,21 @@ export default function AICopilotPanel({ showToast }) {
           </div>
         )}
       </div>
+
+      {/* ─── Commit Quick-Action Bar (shown when form is complete) ─── */}
+      {canSubmit && !isLoading && (
+        <div className={styles.submitBar}>
+          <span className={styles.submitBarText}>✨ All fields complete</span>
+          <button
+            type="button"
+            className={styles.submitBarBtn}
+            onClick={handleQuickSubmit}
+          >
+            <CommitIcon />
+            Commit to QMS Ledger →
+          </button>
+        </div>
+      )}
 
       {/* ─── Input Form ─── */}
       <form className={styles.inputForm} onSubmit={handleSendMessage}>
@@ -238,9 +381,13 @@ export default function AICopilotPanel({ showToast }) {
         </button>
 
         <input
+          ref={inputRef}
           type="text"
           className={styles.textInput}
-          placeholder="Paste complaint email or type correction..."
+          placeholder={complaintId
+            ? "Type corrections or 'submit' to commit…"
+            : "Paste complaint email or describe issue…"
+          }
           value={inputMessage}
           onChange={(e) => setInputMessage(e.target.value)}
           disabled={isLoading}
@@ -257,7 +404,7 @@ export default function AICopilotPanel({ showToast }) {
       </form>
 
       {/* ─── Footer ─── */}
-      <div className={styles.footer}>POWERED BY LANGGRAPH</div>
+      <div className={styles.footer}>AIVOA · POWERED BY LANGGRAPH + GROQ</div>
     </div>
   );
 }

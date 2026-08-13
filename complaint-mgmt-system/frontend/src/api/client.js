@@ -28,10 +28,7 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 const client = axios.create({
   baseURL: BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  timeout: 60_000, // 60 s — supports full LangGraph LLM processing & retries
+  timeout: 120_000, // 120 s — supports full LangGraph LLM processing & retries
 });
 
 // ---------------------------------------------------------------------------
@@ -39,18 +36,15 @@ const client = axios.create({
 // ---------------------------------------------------------------------------
 client.interceptors.request.use(
   (config) => {
-    /**
-     * Actor header — placeholder for JWT auth.
-     *
-     * While the backend has no authentication, `X-Actor` identifies who is
-     * making the request (maps to `actor` in the audit_log table).
-     * Replace this block with a Bearer token attachment once auth is wired:
-     *
-     *   const token = getAuthToken(); // from Redux state or localStorage
-     *   if (token) config.headers.Authorization = `Bearer ${token}`;
-     */
     const actor = localStorage.getItem('actor') ?? 'anonymous';
     config.headers['X-Actor'] = actor;
+
+    // If data is FormData, do NOT force application/json header
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
+    } else if (!config.headers['Content-Type']) {
+      config.headers['Content-Type'] = 'application/json';
+    }
     return config;
   },
   (error) => Promise.reject(error),

@@ -3,7 +3,7 @@ import { createSlice } from '@reduxjs/toolkit';
 const initialGreeting = {
   id: 'init-greeting',
   sender: 'assistant',
-  text: 'Ready to process new complaints. You can paste the raw email from the customer, or upload a PDF of the complaint report. I will extract the data and run the initial risk assessment.',
+  text: "Hello! I'm **AIVOA Copilot** — your AI assistant for QMS complaint intake.\n\nI can help you in three ways:\n• **Log a complaint** — describe the issue in plain English and I'll fill the form\n• **Edit a complaint** — say what changed (e.g. 'sorry, batch is BMX24602') and I'll update it\n• **Extract from document** — upload a PDF or email using the 📎 button\n\nTo get started, describe the complaint or upload a document.",
   timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
 };
 

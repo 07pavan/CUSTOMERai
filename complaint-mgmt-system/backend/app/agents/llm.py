@@ -57,6 +57,39 @@ def get_async_groq_client() -> AsyncGroq:
 # Core Execution Callables
 # ---------------------------------------------------------------------------
 
+import asyncio
+import time
+
+def _call_with_retry(fn, *args, max_retries: int = 3, initial_delay: float = 1.0, **kwargs):
+    """Execute sync function with retry on Groq rate limits (429)."""
+    delay = initial_delay
+    for attempt in range(max_retries + 1):
+        try:
+            return fn(*args, **kwargs)
+        except Exception as exc:
+            is_429 = "429" in str(exc) or getattr(exc, "status_code", None) == 429
+            if is_429 and attempt < max_retries:
+                logger.warning("Groq 429 Rate Limit encountered. Retrying in %.1fs (attempt %d/%d)...", delay, attempt + 1, max_retries)
+                time.sleep(delay)
+                delay *= 2.0
+            else:
+                raise
+
+async def _acall_with_retry(afn, *args, max_retries: int = 3, initial_delay: float = 1.0, **kwargs):
+    """Execute async function with retry on Groq rate limits (429)."""
+    delay = initial_delay
+    for attempt in range(max_retries + 1):
+        try:
+            return await afn(*args, **kwargs)
+        except Exception as exc:
+            is_429 = "429" in str(exc) or getattr(exc, "status_code", None) == 429
+            if is_429 and attempt < max_retries:
+                logger.warning("Groq 429 Rate Limit encountered. Retrying in %.1fs (attempt %d/%d)...", delay, attempt + 1, max_retries)
+                await asyncio.sleep(delay)
+                delay *= 2.0
+            else:
+                raise
+
 def call_gemma(
     prompt: str,
     system: Optional[str] = None,
@@ -73,13 +106,16 @@ def call_gemma(
         messages.append({"role": "system", "content": system})
     messages.append({"role": "user", "content": prompt})
 
-    response = client.chat.completions.create(
-        model=settings.GROQ_MODEL_FAST,
-        messages=messages,
-        temperature=temperature,
-        max_tokens=max_tokens,
-    )
-    return response.choices[0].message.content or ""
+    def _do():
+        response = client.chat.completions.create(
+            model=settings.GROQ_MODEL_FAST,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+        return response.choices[0].message.content or ""
+
+    return _call_with_retry(_do)
 
 
 async def acall_gemma(
@@ -97,13 +133,16 @@ async def acall_gemma(
         messages.append({"role": "system", "content": system})
     messages.append({"role": "user", "content": prompt})
 
-    response = await client.chat.completions.create(
-        model=settings.GROQ_MODEL_FAST,
-        messages=messages,
-        temperature=temperature,
-        max_tokens=max_tokens,
-    )
-    return response.choices[0].message.content or ""
+    async def _ado():
+        response = await client.chat.completions.create(
+            model=settings.GROQ_MODEL_FAST,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+        return response.choices[0].message.content or ""
+
+    return await _acall_with_retry(_ado)
 
 
 def call_llama(
@@ -122,13 +161,16 @@ def call_llama(
         messages.append({"role": "system", "content": system})
     messages.append({"role": "user", "content": prompt})
 
-    response = client.chat.completions.create(
-        model=settings.GROQ_MODEL_LARGE,
-        messages=messages,
-        temperature=temperature,
-        max_tokens=max_tokens,
-    )
-    return response.choices[0].message.content or ""
+    def _do():
+        response = client.chat.completions.create(
+            model=settings.GROQ_MODEL_LARGE,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+        return response.choices[0].message.content or ""
+
+    return _call_with_retry(_do)
 
 
 async def acall_llama(
@@ -146,13 +188,16 @@ async def acall_llama(
         messages.append({"role": "system", "content": system})
     messages.append({"role": "user", "content": prompt})
 
-    response = await client.chat.completions.create(
-        model=settings.GROQ_MODEL_LARGE,
-        messages=messages,
-        temperature=temperature,
-        max_tokens=max_tokens,
-    )
-    return response.choices[0].message.content or ""
+    async def _ado():
+        response = await client.chat.completions.create(
+            model=settings.GROQ_MODEL_LARGE,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+        return response.choices[0].message.content or ""
+
+    return await _acall_with_retry(_ado)
 
 
 # ---------------------------------------------------------------------------

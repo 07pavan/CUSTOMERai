@@ -70,9 +70,9 @@ import client from './client';
  */
 const axiosBaseQuery =
   () =>
-  async ({ url, method = 'GET', data, params, signal }) => {
+  async ({ url, method = 'GET', data, params, headers, signal }) => {
     try {
-      const response = await client.request({ url, method, data, params, signal });
+      const response = await client.request({ url, method, data, params, headers, signal });
       return { data: response.data };
     } catch (error) {
       // RTK Query expects { error: { status, data } } on failure.
@@ -203,11 +203,6 @@ export const complaintsApi = createApi({
     // uploadDocument — POST /api/v1/complaints/{id}/documents             //
     // ------------------------------------------------------------------ //
     uploadDocument: builder.mutation({
-      /**
-       * @param {object} args
-       * @param {number} args.complaintId - Target complaint ID
-       * @param {File} args.file         - File object from file input
-       */
       query: ({ complaintId, file }) => {
         const formData = new FormData();
         formData.append('file', file);
@@ -215,9 +210,6 @@ export const complaintsApi = createApi({
           url: `/api/v1/complaints/${complaintId}/documents`,
           method: 'POST',
           data: formData,
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
         };
       },
       invalidatesTags: (result, error, { complaintId }) => [
@@ -229,9 +221,6 @@ export const complaintsApi = createApi({
     // assessComplaint — POST /api/v1/complaints/{id}/assess              //
     // ------------------------------------------------------------------ //
     assessComplaint: builder.mutation({
-      /**
-       * @param {number} complaintId - Target complaint ID
-       */
       query: (complaintId) => ({
         url: `/api/v1/complaints/${complaintId}/assess`,
         method: 'POST',
@@ -246,9 +235,6 @@ export const complaintsApi = createApi({
     // fetchAnalyticsSummary — GET /api/v1/analytics/summary             //
     // ------------------------------------------------------------------ //
     fetchAnalyticsSummary: builder.query({
-      /**
-       * @param {number} [days=30] - Time window in days
-       */
       query: (days = 30) => `/api/v1/analytics/summary?days=${days}`,
       providesTags: ['ComplaintList'],
     }),
@@ -257,9 +243,6 @@ export const complaintsApi = createApi({
     // extractIntakeFields — POST /api/v1/complaints/extract               //
     // ------------------------------------------------------------------ //
     extractIntakeFields: builder.mutation({
-      /**
-       * @param {File} file - File object to extract fields from before submitting
-       */
       query: (file) => {
         const formData = new FormData();
         formData.append('file', file);
@@ -267,9 +250,6 @@ export const complaintsApi = createApi({
           url: '/api/v1/complaints/extract',
           method: 'POST',
           data: formData,
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
         };
       },
     }),
@@ -301,9 +281,6 @@ export const complaintsApi = createApi({
           url: '/api/v1/copilot/upload',
           method: 'POST',
           data: formData,
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
         };
       },
       invalidatesTags: [{ type: 'ComplaintList', id: 'LIST' }],

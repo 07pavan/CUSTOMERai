@@ -116,42 +116,15 @@ export default function ComplaintForm({ onSuccess, showToast }) {
   const statusBadge = useAppSelector(selectStatusBadge);
 
   const [errors, setErrors] = useState({});
-  const [file, setFile] = useState(null);
-  const [dragOver, setDragOver] = useState(false);
-  const fileInputRef = useRef(null);
-  const fastFillInputRef = useRef(null);
 
   const [createComplaint, { isLoading: isCreating }] = useCreateComplaintMutation();
-  const [uploadDocument, { isLoading: isUploading }] = useUploadDocumentMutation();
-  const [extractIntakeFields, { isLoading: isExtracting }] = useExtractIntakeFieldsMutation();
 
-  const isLoading = isCreating || isUploading || isExtracting;
+  const isLoading = isCreating;
 
   const isPopulated = statusBadge === 'Ready to Commit' || Boolean(
     aiFilledFields.size > 0 ||
     (form.product_name && form.batch_no && form.customer_name && form.complaint_description)
   );
-
-  /* ─── AI Fast Fill from Document ─── */
-  const handleFastFill = async (e) => {
-    const pickedFile = e.target.files?.[0];
-    if (!pickedFile) return;
-
-    try {
-      setFile(pickedFile);
-      const res = await extractIntakeFields(pickedFile).unwrap();
-      dispatch(populateFromAi(res));
-      setErrors({});
-
-      showToast({
-        type: 'success',
-        message: `AI Fast-Fill extracted form field(s) from "${pickedFile.name}". Please review pre-filled values before committing.`,
-        duration: 7000,
-      });
-    } catch (err) {
-      showToast({ type: 'error', message: err.data ?? 'Could not extract fields from document.' });
-    }
-  };
 
   /* ─── Field change handler ─── */
   const handleChange = useCallback((e) => {
@@ -159,24 +132,6 @@ export default function ComplaintForm({ onSuccess, showToast }) {
     dispatch(updateField({ name, value }));
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: '' }));
   }, [dispatch, errors]);
-
-  /* ─── File handlers ─── */
-  const handleFileChange = (e) => {
-    const picked = e.target.files?.[0];
-    if (picked) setFile(picked);
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    setDragOver(false);
-    const dropped = e.dataTransfer.files?.[0];
-    if (dropped) setFile(dropped);
-  };
-
-  const removeFile = () => {
-    setFile(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
 
   /* ─── Validation ─── */
   const validate = () => {
@@ -224,29 +179,14 @@ export default function ComplaintForm({ onSuccess, showToast }) {
 
       const result = await createComplaint(payload).unwrap();
 
-      let docNotice = '';
-      if (file) {
-        try {
-          const docRes = await uploadDocument({ complaintId: result.id, file }).unwrap();
-          docNotice = docRes.has_extracted_text
-            ? ' Attachment stored & text extracted.'
-            : ' Attachment stored.';
-        } catch (uploadErr) {
-          docNotice = ' Complaint committed, but attachment upload failed.';
-        }
-      }
-
       showToast({
         type: 'success',
-        message: `Complaint ${result.complaint_number} committed to QMS Ledger successfully.${docNotice}`,
+        message: `Complaint ${result.complaint_number} committed to QMS Ledger successfully.`,
         duration: 6000,
       });
 
-      setForm(INITIAL_FORM);
+      dispatch(resetForm());
       setErrors({});
-      setFile(null);
-      setAiFilledFields(new Set());
-      if (fileInputRef.current) fileInputRef.current.value = '';
 
       onSuccess?.(result);
     } catch (err) {
@@ -260,8 +200,6 @@ export default function ComplaintForm({ onSuccess, showToast }) {
   const handleClear = () => {
     dispatch(resetForm());
     setErrors({});
-    setFile(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const inputClass = (name) =>
@@ -462,53 +400,11 @@ export default function ComplaintForm({ onSuccess, showToast }) {
               </div>
             </section>
 
-            {/* §3 FACILITY & MATERIAL IMPACT */}
-            <section className={styles.section}>
-              <div className={styles.sectionLabel}>
-                <FactoryIcon />
-                3. FACILITY &amp; MATERIAL IMPACT
-              </div>
-              <div className={styles.grid}>
-                <div className={styles.field}>
-                  <label htmlFor="originating_site_block" className={styles.label}>
-                    Originating Site Block
-                  </label>
-                  <select
-                    id="originating_site_block"
-                    name="originating_site_block"
-                    className={styles.select}
-                    value={form.originating_site_block}
-                    onChange={handleChange}
-                  >
-                    <option value="">Select manufacturing block…</option>
-                    {SITE_BLOCK_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className={styles.field}>
-                  <label htmlFor="impacted_npm" className={styles.label}>
-                    Impacted Non-Product Materials (NPM)
-                  </label>
-                  <input
-                    id="impacted_npm"
-                    name="impacted_npm"
-                    type="text"
-                    className={styles.input}
-                    value={form.impacted_npm}
-                    onChange={handleChange}
-                    placeholder={form.impacted_npm ? '' : 'Awaiting AI extraction... (e.g. NPM-9901 Foil Seal)'}
-                  />
-                </div>
-              </div>
-            </section>
-
-            {/* §4 DEFECT ANALYSIS */}
+            {/* §3 DEFECT ANALYSIS */}
             <section className={styles.section}>
               <div className={styles.sectionLabel}>
                 <TagIcon />
-                4. DEFECT ANALYSIS
+                3. DEFECT ANALYSIS
               </div>
               <div className={styles.grid}>
                 <div className={styles.fieldFull} style={{ gridColumn: '1 / -1' }}>
@@ -550,11 +446,11 @@ export default function ComplaintForm({ onSuccess, showToast }) {
               </div>
             </section>
 
-            {/* §5 AI COPILOT RISK ASSESSMENT (boxed section) */}
+            {/* §4 AI COPILOT RISK ASSESSMENT (boxed section) */}
             <section className={styles.boxedSection}>
               <div className={styles.sectionLabel} style={{ borderBottom: 'none', paddingBottom: 0 }}>
                 <SparklesIcon />
-                5. AI COPILOT RISK ASSESSMENT
+                4. AI COPILOT RISK ASSESSMENT
               </div>
 
               <div className={styles.grid}>
@@ -607,52 +503,6 @@ export default function ComplaintForm({ onSuccess, showToast }) {
                     rows={2}
                   />
                 </div>
-              </div>
-            </section>
-
-            {/* Attachments optional card */}
-            <section className={styles.section}>
-              <div className={styles.sectionLabel}>
-                <AttachIcon />
-                Supporting Attachments
-              </div>
-              <div className={styles.fieldFull}>
-                <div
-                  className={`${styles.uploadZone} ${dragOver ? styles.dragOver : ''}`}
-                  onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-                  onDragLeave={() => setDragOver(false)}
-                  onDrop={handleDrop}
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept={ACCEPTED_FILE_TYPES}
-                    onChange={handleFileChange}
-                    aria-label="Upload complaint attachment"
-                  />
-                  <div className={styles.uploadIcon}>
-                    <AttachIcon />
-                  </div>
-                  <p className={styles.uploadText}>
-                    <span>Click to browse</span> or drag &amp; drop
-                  </p>
-                  <p className={styles.uploadHint}>
-                    PDF, email (.eml / .msg), JPEG, PNG, TIFF — max 25 MB
-                  </p>
-                </div>
-
-                {file && (
-                  <div className={styles.uploadedFile}>
-                    <span className={styles.uploadedFileIcon}><CheckFileIcon /></span>
-                    <span className={styles.uploadedFileName}>{file.name}</span>
-                    <span style={{ fontSize: '0.7rem', opacity: 0.7, marginLeft: 'auto', marginRight: '0.5rem' }}>
-                      {(file.size / 1024).toFixed(0)} KB
-                    </span>
-                    <button type="button" className={styles.removeFile} onClick={removeFile} aria-label="Remove file">
-                      <XIcon />
-                    </button>
-                  </div>
-                )}
               </div>
             </section>
 

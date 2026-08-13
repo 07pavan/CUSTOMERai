@@ -1,17 +1,25 @@
 """
 app/agents/nodes/field_correction.py
 ---------------------------------------
-LangGraph Node: Field Correction Agent
+LangGraph Node: Field Correction & Conversational Fill Agent
 
-Parses user correction messages against an existing field dictionary using Gemma 2 9B IT.
+Handles two scenarios in one node:
 
-Inputs:
-  - state["extracted_fields"]   : Dict of currently extracted complaint fields
-  - state["correction_message"] : User's correction/update message string
+  1. CORRECTION  — user explicitly corrects an existing field value
+       "actually the batch is AMX240603, not AMX240602"
+       → returns diff: {"batch_no": "AMX240603"}
 
-Output:
-  - state["field_diff"]         : JSON dictionary containing ONLY the key-value pairs that changed
-  - state["extracted_fields"]   : Merged dictionary updating extracted_fields with field_diff
+  2. FILL-IN     — user answers the AI's question about a missing field
+       AI asked: "Could you please tell me the Expiry Date?"
+       User said: "2026/feb/2"
+       → returns diff: {"expiry_date": "2026/feb/2"}
+
+The LLM receives:
+  - Current field values (so it knows what's already filled vs empty)
+  - Full conversation history (so it understands what the AI was asking)
+  - The user's latest message
+
+It returns ONLY the fields that should change or be filled.
 """
 
 import json
@@ -24,7 +32,7 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Allowed M1 field names
+# Allowed field names
 ALLOWED_M1_FIELDS = {
     "complaint_source",
     "customer_name",
@@ -41,39 +49,110 @@ ALLOWED_M1_FIELDS = {
 }
 
 FIELD_CORRECTION_SYSTEM_PROMPT = """
-You are a Precision Data Quality Specialist for a Pharmaceutical QMS system.
-Your job is to read an existing set of extracted complaint fields alongside a user correction message, and extract ONLY the field corrections requested.
+You are a Smart Field Extraction Specialist for a Pharmaceutical QMS complaint form.
 
-ALLOWED M1 FIELD NAMES:
-- "complaint_source"       : ('pharmacy', 'email', 'portal', 'phone', 'paper')
-- "customer_name"          : (string)
-- "product_name"           : (string)
-- "product_strength"       : (string)
-- "batch_no"               : (string)
-- "affected_quantity"      : (string)
-- "manufacturing_date"     : (string)
-- "expiry_date"            : (string)
-- "originating_site_block" : (string)
-- "impacted_npm"           : (string)
-- "complaint_category"     : ('quality', 'adverse_event', 'counterfeit', 'other')
-- "complaint_description"  : (string)
+Your role is DUAL — handle both corrections AND fill-ins from natural conversation:
 
-STRICT DIFF RULES:
-1. Return ONLY a JSON dictionary of the fields that the user EXPLICITLY intended to change or update in their message.
-2. Do NOT include or alter any fields that were NOT mentioned in the correction message.
-3. Use the exact allowed M1 field names listed above.
-4. If no fields were modified, return an empty JSON object `{}`.
+SCENARIO A — CORRECTION:
+  The user explicitly corrects an existing field value.
+  Example: "actually the batch is AMX240603" → {"batch_no": "AMX240603"}
+
+SCENARIO B — FILL-IN (most common in multi-turn chat):
+  The AI asked for a missing field (visible in CONVERSATION HISTORY),
+  and the user is now answering that question — even if they don't mention the field name.
+  Example:
+    History: Assistant: "Could you please tell me the Expiry Date?"
+    User: "2026/feb/2"
+    → {"expiry_date": "2026/feb/2"}
+
+  Example:
+    History: Assistant: "What is the Customer/Reporter Name?"
+    User: "Apollo Pharmacy"
+    → {"customer_name": "Apollo Pharmacy"}
+
+  Example:
+    History: Assistant: "Missing: Affected Quantity and Manufacturing Date"
+    User: "manufacturing data is 2025/2/25 and expiry date is 2026/feb/2"
+    → {"manufacturing_date": "2025/2/25", "expiry_date": "2026/feb/2"}
+
+ALLOWED FIELD NAMES AND VALUE RULES:
+- "complaint_source"       : one of 'pharmacy', 'email', 'portal', 'phone', 'paper'
+- "customer_name"          : string — name of pharmacy, hospital, patient, or reporter
+- "product_name"           : string — brand or generic drug name
+- "product_strength"       : string — e.g. '500mg', '10mg/mL', '5%'
+- "batch_no"               : string — UPPERCASE, e.g. 'AMX240602'
+- "affected_quantity"      : string — e.g. '48 capsules', '3 vials', '1500 tablets'
+- "manufacturing_date"     : string — return EXACTLY as user wrote it, e.g. '2025/2/25'
+- "expiry_date"            : string — return EXACTLY as user wrote it, e.g. '2026/feb/2'
+- "originating_site_block" : string — manufacturing block or site
+- "impacted_npm"           : string — non-product material ID, e.g. 'NPM-9901'
+- "complaint_category"     : one of 'quality', 'adverse_event', 'counterfeit', 'other'
+- "complaint_description"  : string — description of the defect or complaint
+
+STRICT OUTPUT RULES:
+1. Return ONLY a JSON object with fields that should be CHANGED or FILLED.
+2. Do NOT re-include fields that already have correct values and were not mentioned.
+3. Do NOT invent values — only extract what the user explicitly stated.
+4. Use the CONVERSATION HISTORY to understand what the AI was asking for, then map
+   the user's answer to the right field name.
+5. For date fields, return the value exactly as the user typed it (e.g. "2025/2/25").
+   The system will parse it into the correct format.
+6. If nothing should change, return {}.
 """
 
 FIELD_CORRECTION_USER_TEMPLATE = """
-CURRENT EXTRACTED FIELDS:
+CURRENT COMPLAINT FIELD VALUES:
 {existing_fields_json}
 
-USER CORRECTION MESSAGE:
+{empty_fields_block}
+
+{chat_history_block}
+
+USER'S LATEST MESSAGE:
 "{correction_message}"
 
-Extract ONLY the JSON diff of changed fields:
+Return the JSON diff of ONLY the fields that should be updated or filled:
 """
+
+
+def _build_history_block(chat_history) -> str:
+    """Formats the last N chat turns into a readable context block for the LLM."""
+    if not chat_history:
+        return ""
+    lines = ["\nCONVERSATION HISTORY (most recent last, use this to understand what the AI asked):"]
+    for turn in chat_history[-12:]:  # include up to 12 turns for full context
+        role = "User" if turn.get("role") == "user" else "Assistant (AI Copilot)"
+        content = str(turn.get("content") or "").strip()
+        if content:
+            lines.append(f"  {role}: {content}")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _build_empty_fields_block(existing_fields: Dict[str, Any]) -> str:
+    """Lists fields that are currently null/empty so the LLM knows what needs filling."""
+    empty = []
+    label_map = {
+        "customer_name": "Customer/Reporter Name",
+        "product_name": "Product Name",
+        "product_strength": "Product Strength / Grade",
+        "batch_no": "Batch / Lot Number",
+        "affected_quantity": "Affected Quantity",
+        "manufacturing_date": "Manufacturing Date",
+        "expiry_date": "Expiry Date",
+        "originating_site_block": "Originating Site Block",
+        "impacted_npm": "Impacted Non-Product Materials",
+        "complaint_description": "Complaint Description",
+    }
+    placeholder_values = {"unknown", "n/a", "none", "unspecified product", "anonymous reporter", ""}
+    for field, label in label_map.items():
+        val = existing_fields.get(field)
+        if val is None or (isinstance(val, str) and val.strip().lower() in placeholder_values):
+            empty.append(f"  - {label} ({field})")
+
+    if not empty:
+        return "\nCURRENTLY MISSING FIELDS: None — all fields are filled.\n"
+    return "\nCURRENTLY MISSING / EMPTY FIELDS (prioritise filling these):\n" + "\n".join(empty) + "\n"
 
 
 # ---------------------------------------------------------------------------
@@ -82,10 +161,17 @@ Extract ONLY the JSON diff of changed fields:
 
 async def field_correction_node(state: ComplaintState) -> ComplaintState:
     """
-    LangGraph async node: parses `correction_message` against `extracted_fields` and produces `field_diff`.
+    LangGraph async node: handles both field corrections AND conversational fill-ins.
+    Uses full chat history for context so it can map answers to the right fields.
     """
     existing_fields = state.get("extracted_fields") or {}
-    correction_message = (state.get("correction_message") or state.get("incoming_message") or state.get("raw_text") or "").strip()
+    correction_message = (
+        state.get("correction_message")
+        or state.get("incoming_message")
+        or state.get("raw_text")
+        or ""
+    ).strip()
+    chat_history = state.get("chat_history") or []
 
     if not correction_message:
         return {"field_diff": {}, "extracted_fields": existing_fields}
@@ -97,8 +183,12 @@ async def field_correction_node(state: ComplaintState) -> ComplaintState:
         _sync_aliases(merged_fields)
         return {"field_diff": cleaned_diff, "extracted_fields": merged_fields}
 
+    history_block = _build_history_block(chat_history)
+    empty_fields_block = _build_empty_fields_block(existing_fields)
     user_prompt = FIELD_CORRECTION_USER_TEMPLATE.format(
         existing_fields_json=json.dumps(existing_fields, indent=2),
+        empty_fields_block=empty_fields_block,
+        chat_history_block=history_block,
         correction_message=correction_message,
     )
 
@@ -126,11 +216,15 @@ async def field_correction_node(state: ComplaintState) -> ComplaintState:
 
 
 def field_correction_node_sync(state: ComplaintState) -> ComplaintState:
-    """
-    Synchronous version of field_correction_node for non-async scripts.
-    """
+    """Synchronous version of field_correction_node."""
     existing_fields = state.get("extracted_fields") or {}
-    correction_message = (state.get("correction_message") or state.get("incoming_message") or state.get("raw_text") or "").strip()
+    correction_message = (
+        state.get("correction_message")
+        or state.get("incoming_message")
+        or state.get("raw_text")
+        or ""
+    ).strip()
+    chat_history = state.get("chat_history") or []
 
     if not correction_message:
         return {"field_diff": {}, "extracted_fields": existing_fields}
@@ -141,8 +235,12 @@ def field_correction_node_sync(state: ComplaintState) -> ComplaintState:
         _sync_aliases(merged_fields)
         return {"field_diff": cleaned_diff, "extracted_fields": merged_fields}
 
+    history_block = _build_history_block(chat_history)
+    empty_fields_block = _build_empty_fields_block(existing_fields)
     user_prompt = FIELD_CORRECTION_USER_TEMPLATE.format(
         existing_fields_json=json.dumps(existing_fields, indent=2),
+        empty_fields_block=empty_fields_block,
+        chat_history_block=history_block,
         correction_message=correction_message,
     )
 
@@ -153,7 +251,6 @@ def field_correction_node_sync(state: ComplaintState) -> ComplaintState:
             system=FIELD_CORRECTION_SYSTEM_PROMPT,
             max_retries=2,
         )
-
         cleaned_diff = _filter_and_clean_diff(raw_diff)
         merged_fields = {**existing_fields, **cleaned_diff}
         _sync_aliases(merged_fields)
@@ -172,12 +269,22 @@ def field_correction_node_sync(state: ComplaintState) -> ComplaintState:
 # ---------------------------------------------------------------------------
 
 def _filter_and_clean_diff(raw_diff: Dict[str, Any]) -> Dict[str, Any]:
+    """Validates and cleans the raw LLM output diff."""
     cleaned = {}
     alias_map = {
         "complainant_name": "customer_name",
         "source_type": "complaint_source",
         "category": "complaint_category",
         "description": "complaint_description",
+        "mfg_date": "manufacturing_date",
+        "manufacture_date": "manufacturing_date",
+        "exp_date": "expiry_date",
+        "expiration_date": "expiry_date",
+        "lot_no": "batch_no",
+        "lot_number": "batch_no",
+        "batch_number": "batch_no",
+        "qty": "affected_quantity",
+        "quantity": "affected_quantity",
     }
 
     for k, v in raw_diff.items():
@@ -185,6 +292,13 @@ def _filter_and_clean_diff(raw_diff: Dict[str, Any]) -> Dict[str, Any]:
         if target_k in ALLOWED_M1_FIELDS and v is not None:
             if target_k == "batch_no" and isinstance(v, str):
                 cleaned[target_k] = v.strip().upper()
+            elif target_k in ("complaint_source",) and isinstance(v, str):
+                # Normalise source to allowed enum values
+                src = v.strip().lower()
+                cleaned[target_k] = src if src in {"pharmacy", "email", "portal", "phone", "paper"} else "email"
+            elif target_k in ("complaint_category",) and isinstance(v, str):
+                cat = v.strip().lower()
+                cleaned[target_k] = cat if cat in {"quality", "adverse_event", "counterfeit", "other"} else "quality"
             else:
                 cleaned[target_k] = v
     return cleaned
@@ -195,30 +309,54 @@ def _heuristic_correction_diff(msg: str) -> Dict[str, Any]:
     import re
     diff = {}
 
-    # Check for batch number pattern
-    batch_match = re.search(r'(?:batch|lot)(?:\s+number|\s+no|\s+#)?\s+(?:is\s+)?([A-Z0-9\-_]{4,25})', msg, re.IGNORECASE)
+    batch_match = re.search(
+        r'(?:batch|lot)(?:\s+number|\s+no|\s+#)?\s+(?:is\s+)?([A-Z0-9\-_]{4,25})',
+        msg, re.IGNORECASE
+    )
     if batch_match:
         diff["batch_no"] = batch_match.group(1).strip().upper()
 
-    # Check for affected quantity pattern
-    qty_match = re.search(r'(?:affected\s+quantity|quantity|qty)\s+(?:is\s+)?(\d+(?:\s*[a-zA-Z]+)?)', msg, re.IGNORECASE)
+    qty_match = re.search(
+        r'(?:affected\s+quantity|quantity|qty)\s+(?:is\s+)?(\d+(?:\s*[a-zA-Z]+)?)',
+        msg, re.IGNORECASE
+    )
     if qty_match:
         diff["affected_quantity"] = qty_match.group(1).strip()
 
-    # Check for customer name pattern
-    name_match = re.search(r'(?:customer\s+name|reporter|complainant)\s+(?:is\s+)?([A-Za-z\s]{3,30})', msg, re.IGNORECASE)
+    name_match = re.search(
+        r'(?:customer|customer\s+name|reporter|complainant)\s+(?:is\s+)?([A-Za-z\s]{3,40})',
+        msg, re.IGNORECASE
+    )
     if name_match:
         diff["customer_name"] = name_match.group(1).strip()
 
-    # Check for product name pattern
-    prod_match = re.search(r'(?:product\s+name|product)\s+(?:is\s+)?([A-Za-z0-9\s]{3,30})', msg, re.IGNORECASE)
+    prod_match = re.search(
+        r'(?:product\s+name|product)\s+(?:is\s+)?([A-Za-z0-9\s]{3,30})',
+        msg, re.IGNORECASE
+    )
     if prod_match:
         diff["product_name"] = prod_match.group(1).strip()
+
+    # Date patterns
+    mfg_match = re.search(
+        r'(?:manufacturing|mfg|manufacture|mfg\s*date|manufacturing\s*date|mfd)\s+(?:date\s+)?(?:is\s+)?([0-9A-Za-z/\-\.]+)',
+        msg, re.IGNORECASE
+    )
+    if mfg_match:
+        diff["manufacturing_date"] = mfg_match.group(1).strip()
+
+    exp_match = re.search(
+        r'(?:expiry|expiration|exp|exp\s*date|expiry\s*date|expires?)\s+(?:date\s+)?(?:is\s+)?([0-9A-Za-z/\-\.]+)',
+        msg, re.IGNORECASE
+    )
+    if exp_match:
+        diff["expiry_date"] = exp_match.group(1).strip()
 
     return diff
 
 
 def _sync_aliases(fields: Dict[str, Any]) -> None:
+    """Keeps backward-compat aliases in sync."""
     if "customer_name" in fields:
         fields["complainant_name"] = fields["customer_name"]
     if "complaint_source" in fields:

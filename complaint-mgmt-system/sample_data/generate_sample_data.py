@@ -354,4 +354,72 @@ SUMMARY OF ACTION:
 
 (OUT_DIR / "complaint_06_counterfeit_packaging.txt").write_text(txt_counterfeit, encoding="utf-8")
 
-print(f"Successfully generated 6 sample complaint files in: {OUT_DIR}")
+# ---------------------------------------------------------------------------
+# 7. complaint_07_metformin_api.pdf (PDF - Metformin Hydrochloride API)
+# ---------------------------------------------------------------------------
+def build_pdf_07():
+    pdf_path = OUT_DIR / "complaint_07_metformin_api.pdf"
+    doc = SimpleDocTemplate(str(pdf_path), pagesize=letter, leftMargin=54, rightMargin=54, topMargin=54, bottomMargin=54)
+    styles = getSampleStyleSheet()
+
+    title_style = ParagraphStyle('TitleStyle', parent=styles['Heading1'], fontSize=16, leading=20, textColor=colors.HexColor('#1e293b'), spaceAfter=8)
+    sub_style = ParagraphStyle('SubStyle', parent=styles['Normal'], fontSize=10, leading=14, textColor=colors.HexColor('#64748b'), spaceAfter=14)
+    body_style = ParagraphStyle('BodyStyle', parent=styles['Normal'], fontSize=10, leading=15, textColor=colors.HexColor('#334155'), spaceAfter=10)
+    label_style = ParagraphStyle('LabelStyle', parent=styles['Normal'], fontSize=9, leading=12, textColor=colors.HexColor('#475569'), fontName='Helvetica-Bold')
+    val_style = ParagraphStyle('ValStyle', parent=styles['Normal'], fontSize=9, leading=12, textColor=colors.HexColor('#0f172a'))
+
+    elements = []
+    elements.append(Paragraph("APOLLO PHARMACEUTICAL MANUFACTURING — QUALITY COMPLAINT REPORT", title_style))
+    elements.append(Paragraph("ACTIVE PHARMACEUTICAL INGREDIENT (API) INCOMING QUALITY DEFECT", sub_style))
+    elements.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor('#059669'), spaceAfter=14))
+
+    meta_data = [
+        [Paragraph("Date of Report:", label_style), Paragraph("July 12, 2026", val_style), Paragraph("Complaint Ref:", label_style), Paragraph("APO-API-2026-0712", val_style)],
+        [Paragraph("Customer Name:", label_style), Paragraph("Apollo Pharmacy Laboratories", val_style), Paragraph("Department:", label_style), Paragraph("Raw Material QA / QC", val_style)],
+        [Paragraph("Complainant Contact:", label_style), Paragraph("Dr. Rajiv Sharma (Head of QA) <r.sharma@apollopharma.example.com>", val_style), Paragraph("Phone:", label_style), Paragraph("+91 98765 43210", val_style)],
+    ]
+
+    t_meta = Table(meta_data, colWidths=[110, 160, 90, 144])
+    t_meta.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#f0fdf4')),
+        ('BOX', (0,0), (-1,-1), 1, colors.HexColor('#bbf7d0')),
+        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor('#dcfce7')),
+        ('PADDING', (0,0), (-1,-1), 6),
+    ]))
+    elements.append(t_meta)
+    elements.append(Spacer(1, 14))
+
+    elements.append(Paragraph("<b>API MATERIAL & LOT DETAILS</b>", label_style))
+    prod_data = [
+        [Paragraph("Product Name:", label_style), Paragraph("Metformin Hydrochloride API", val_style)],
+        [Paragraph("Product Grade / Strength:", label_style), Paragraph("IP / BP (Pharma Grade)", val_style)],
+        [Paragraph("Batch / Lot Number:", label_style), Paragraph("<b>MFH260712A</b>", val_style)],
+        [Paragraph("Manufacturing Date:", label_style), Paragraph("2026-01-15", val_style)],
+        [Paragraph("Expiry Date:", label_style), Paragraph("2029-01-14", val_style)],
+        [Paragraph("Affected Quantity:", label_style), Paragraph("50 kg (2 HDPE drums)", val_style)],
+    ]
+    t_prod = Table(prod_data, colWidths=[140, 364])
+    t_prod.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#ffffff')),
+        ('BOX', (0,0), (-1,-1), 1, colors.HexColor('#cbd5e1')),
+        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e2e8f0')),
+        ('PADDING', (0,0), (-1,-1), 6),
+    ]))
+    elements.append(t_prod)
+    elements.append(Spacer(1, 14))
+
+    elements.append(Paragraph("<b>COMPLAINT DESCRIPTION & DEFECT ANALYSIS</b>", label_style))
+    desc_text = (
+        "During incoming raw material receipt inspection of Metformin Hydrochloride API batch MFH260712A, quality control analysts "
+        "observed abnormal off-white discoloration and clumping in two 25kg HDPE drums.<br/><br/>"
+        "<b>Defect Details:</b> Standard specification requires a pure white crystalline powder. The material in drum #2 displays "
+        "yellowish discoloration and moist agglomerates, failing assay purity and loss on drying (LOD) specification limits.<br/><br/>"
+        "<b>Suggested Action:</b> Place batch MFH260712A on quarantine hold, perform vendor QA investigation, and issue replacement shipment."
+    )
+    elements.append(Paragraph(desc_text, body_style))
+    doc.build(elements)
+
+build_pdf_07()
+
+print(f"Successfully generated sample complaint files in: {OUT_DIR}")
+

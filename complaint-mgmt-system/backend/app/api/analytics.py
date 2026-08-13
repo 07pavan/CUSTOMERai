@@ -99,8 +99,8 @@ async def get_analytics_summary(
     # 2. Category Breakdown
     # -----------------------------------------------------------------------
     cat_stmt = (
-        select(Complaint.category, func.count(Complaint.id))
-        .group_by(Complaint.category)
+        select(Complaint.complaint_category, func.count(Complaint.id))
+        .group_by(Complaint.complaint_category)
     )
     cat_results = await db.execute(cat_stmt)
     cat_dict = {cat.value if hasattr(cat, "value") else str(cat): count for cat, count in cat_results}

@@ -280,3 +280,53 @@
   text-transform: uppercase;
   color: hsl(220, 15%, 55%);
 }
+
+/* ─── Submit Quick-Action Bar ─── */
+.submitBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.625rem 1rem;
+  background: linear-gradient(135deg, hsl(140, 60%, 96%), hsl(150, 50%, 94%));
+  border-top: 1px solid hsl(140, 40%, 82%);
+  animation: slideUp 200ms ease-out;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.submitBarText {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: hsl(140, 40%, 28%);
+  white-space: nowrap;
+}
+
+.submitBarBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-family: var(--font-sans, 'Inter', sans-serif);
+  background: hsl(140, 50%, 36%);
+  color: #ffffff;
+  border: none;
+  border-radius: 0.4rem;
+  cursor: pointer;
+  transition: background 120ms ease, transform 80ms ease;
+  white-space: nowrap;
+}
+
+.submitBarBtn:hover {
+  background: hsl(140, 55%, 28%);
+  transform: translateY(-1px);
+}
+
+.submitBarBtn:active {
+  transform: translateY(0);
+}

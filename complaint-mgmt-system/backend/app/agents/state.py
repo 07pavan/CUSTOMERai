@@ -26,6 +26,7 @@ class ComplaintState(TypedDict, total=False):
     root_cause_suggestion  : Hypothesized 5M root cause analysis.
     capa_suggestion        : Recommended Corrective & Preventive Actions.
     summary                : Executive summary of the triage assessment.
+    chat_history           : Recent conversation turns [{"role": "user"|"assistant", "content": str}].
     error                  : Optional error message if any node failed during processing.
     """
 
@@ -46,4 +47,5 @@ class ComplaintState(TypedDict, total=False):
     is_correction: Optional[bool]
     correction_message: Optional[str]
     incoming_message: Optional[str]
+    chat_history: Optional[List[Dict[str, Any]]]
     error: Optional[str]
