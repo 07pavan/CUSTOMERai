@@ -1,0 +1,32 @@
+EMAIL INTAKE RECORD — PHARMAVIGILANCE
+================================================================================
+RECEIVED: 2025-05-14 14:22 EST
+RECIPIENT: complaint-intake@pharma-corp-global.com
+HEADER SENDER: Dr. Robert Vance, MD <rvance@vanceinternalmed.org>
+
+SUBJECT: Quality Defect Report — Severely Chipped Cardexin 25mg ER Tablets
+
+To Whom It May Concern,
+
+I am a board-certified internist writing on behalf of one of my chronic hypertension patients who presented today with physical tablet defects in their prescription of Cardexin 25mg Extended Release (Metoprolol Succinate ER).
+
+The patient opened a new 90-count bottle and discovered that approximately 15 to 20 tablets were severely chipped, crumbled, or split into fragments at the bottom of the container. Given that these are extended-release formulation tablets, administration of broken fragments poses a significant risk of dose-dumping and acute hypotension.
+
+PRODUCT IDENTIFICATION:
+- Product Name: Cardexin 25mg Extended Release Tablets
+- Quantity: 90-count HDPE Bottle
+- Lot / Batch Number: UNKNOWN (Patient transferred tablets to a daily pill organizer and discarded the original prescription bottle and box before noticing the chips. No batch number available on pharmacy receipt.)
+- Expiration Date: Unspecified on receipt
+
+COMPLAINANT CONTACT:
+- Reporter: Dr. Robert Vance, MD
+- Clinic: Vance Internal Medicine Associates
+- Phone: (555) 891-3400
+- Email: rvance@vanceinternalmed.org
+- Patient Reference: Patient Initials J.D. (DOB 1958-03-12)
+
+REQUESTED ACTION:
+Please confirm if other complaints of friability or physical tablet fragmentation have been reported for recent Cardexin production lots. I have advised the patient to hold the medication and issued a replacement prescription.
+
+Regards,
+Dr. Robert Vance, MD

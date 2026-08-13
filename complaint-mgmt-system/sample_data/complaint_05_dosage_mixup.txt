@@ -1,0 +1,53 @@
+CALL CENTER CALL TRANSCRIPT — PHARMA INTAKE HOTLINE
+================================================================================
+CALL ID: CALL-2025-0520-9941
+DATE/TIME: May 20, 2025 | 11:04 AM EST
+CALL TAKEN BY: Representative James Miller (Badge #JM-408)
+CALL SOURCE: Toll-Free Healthcare Provider Line (1-800-555-QMS1)
+
+CALL DETAILS / PARTICIPANTS:
+--------------------------------------------------------------------------------
+Caller Name: Elena Rostova, RPh (Pharmacy Manager)
+Facility: MetroCare Outpatient Pharmacy
+Phone Number: (555) 782-9110
+Email: e.rostova@metrocare-pharmacy.org
+Address: 450 Medical Center Blvd, Floor 1, Boston, MA 02115
+
+COMPLAINT INFORMATION:
+--------------------------------------------------------------------------------
+Product Name: NeuroPam (Diazepam) Capsules
+Reported Strength: 5mg Capsules
+Batch / Lot Number: NP-77402-B
+Expiration Date: 09/2026
+Package Size: 100-count bottle
+
+TRANSCRIPT / SUMMARY OF CALL:
+--------------------------------------------------------------------------------
+[11:04:12] REP MILLER: Thank you for calling Customer Quality Care. My name is James. How may I assist you today?
+
+[11:04:25] PHARMACIST ROSTOVA: Hello James. I'm calling from MetroCare Pharmacy in Boston. We have a potential medication mix-up inside a bottle of NeuroPam 5mg capsules that we opened this morning during routine prescription dispensing.
+
+[11:04:42] REP MILLER: I understand. Can you describe what was found in the bottle?
+
+[11:04:48] PHARMACIST ROSTOVA: Yes. The bottle is labeled as NeuroPam 5mg Capsules (which are yellow, opaque, size 3 capsules). While pouring the capsules onto the counting tray, my technician noticed one single capsule that was distinctively blue and white, which matches the physical appearance of NeuroPam 10mg Capsules.
+
+[11:05:15] REP MILLER: Thank you for catching that. Was the bottle safety seal intact prior to opening?
+
+[11:05:22] PHARMACIST ROSTOVA: Yes, the heat-induction foil seal was 100% intact when the technician opened it. The bottle was from a sealed 12-pack case received from our wholesaler yesterday.
+
+[11:05:40] REP MILLER: May I get the lot number and expiration date from the bottle label?
+
+[11:05:45] PHARMACIST ROSTOVA: The lot number on the side of the bottle is NP-77402-B, and the expiration date is 09/2026.
+
+[11:06:05] REP MILLER: Thank you, Elena. Have any patients received doses from this specific bottle?
+
+[11:06:12] PHARMACIST ROSTOVA: No, thankfully we caught it during counting before any prescription was dispensed. We have segregated this bottle and checked the remaining 11 bottles in the case — no other visual anomalies were spotted, but we have placed the entire lot on quarantine hold.
+
+[11:06:35] REP MILLER: Perfect. I am logging this as a Critical Level-1 Product Mix-up Incident. I will email you a prepaid shipping kit to send the bottle and the mismatched 10mg capsule to our central QA laboratory for laser printing and capsule shell verification.
+
+SUMMARY OF ACTION:
+- Case reference # CMP-2025-0520 created.
+- Product: NeuroPam 5mg Capsules (Lot NP-77402-B).
+- Defect: Single 10mg blue/white capsule found inside 5mg yellow bottle.
+- Quarantine confirmed at dispensing facility.
+================================================================================
