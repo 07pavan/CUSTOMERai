@@ -33,7 +33,15 @@ export default function Navbar({ activeView, onNavigate }) {
     <nav className={styles.nav} role="navigation" aria-label="Main navigation">
       <div className={styles.inner}>
         {/* Brand */}
-        <div className={styles.brand}>
+        <div
+          className={styles.brand}
+          onClick={() => onNavigate('list')}
+          style={{ cursor: 'pointer' }}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === 'Enter' && onNavigate('list')}
+          aria-label="ComplaintQMS Logo"
+        >
           <div className={styles.brandIcon}><ShieldIcon /></div>
           <div>
             <div className={styles.brandName}>ComplaintQMS</div>
