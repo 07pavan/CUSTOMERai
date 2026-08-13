@@ -102,6 +102,21 @@ async def process_copilot_message(
     # -----------------------------------------------------------------------
     # Case B: complaint_id IS NULL ➔ New Complaint Intake
     # -----------------------------------------------------------------------
+    if _is_greeting_message(payload.message):
+        return CopilotNewComplaintResponse(
+            complaint_id=None,
+            complaint_number="",
+            extracted_fields={},
+            severity="minor",
+            suggested_next_action="Provide complaint details",
+            initial_risk_assessment="Awaiting customer complaint details or document upload.",
+            reply_text=(
+                "Hello! I am your AI Copilot for Quality Assurance Complaint Intake. "
+                "Please paste the raw complaint email, customer report, or upload a document (PDF/EML) using the paperclip button below. "
+                "I will extract all product, batch, and risk information to populate your form."
+            ),
+        )
+
     pipeline_res = await run_complaint_pipeline(raw_text=payload.message, db_session=db)
 
     extracted = pipeline_res.get("extracted_fields") or {}
@@ -163,6 +178,25 @@ async def process_copilot_message(
     await db.commit()
     await db.refresh(complaint)
 
+    full_extracted = {
+        "complaint_source": complaint.complaint_source,
+        "customer_name": complaint.customer_name,
+        "complainant_contact": complaint.complainant_contact,
+        "product_name": complaint.product_name,
+        "product_strength": complaint.product_strength,
+        "batch_no": complaint.batch_no,
+        "affected_quantity": complaint.affected_quantity,
+        "manufacturing_date": str(complaint.manufacturing_date) if complaint.manufacturing_date else extracted.get("manufacturing_date"),
+        "expiry_date": str(complaint.expiry_date) if complaint.expiry_date else extracted.get("expiry_date"),
+        "originating_site_block": complaint.originating_site_block,
+        "impacted_npm": complaint.impacted_npm,
+        "complaint_category": complaint.complaint_category,
+        "complaint_description": complaint.complaint_description,
+        "severity": complaint.severity,
+        "suggested_next_action": complaint.suggested_next_action,
+        "initial_risk_assessment": complaint.initial_risk_assessment,
+    }
+
     reply_text = (
         f"Complaint {complaint_num} logged successfully. "
         f"Extracted product '{complaint.product_name}', batch '{complaint.batch_no}', "
@@ -172,7 +206,7 @@ async def process_copilot_message(
     return CopilotNewComplaintResponse(
         complaint_id=complaint.id,
         complaint_number=complaint_num,
-        extracted_fields=extracted,
+        extracted_fields=full_extracted,
         severity=sev,
         suggested_next_action=next_action,
         initial_risk_assessment=risk_assessment,
@@ -327,6 +361,25 @@ async def upload_copilot_document(
     await db.commit()
     await db.refresh(complaint)
 
+    full_extracted = {
+        "complaint_source": complaint.complaint_source,
+        "customer_name": complaint.customer_name,
+        "complainant_contact": complaint.complainant_contact,
+        "product_name": complaint.product_name,
+        "product_strength": complaint.product_strength,
+        "batch_no": complaint.batch_no,
+        "affected_quantity": complaint.affected_quantity,
+        "manufacturing_date": str(complaint.manufacturing_date) if complaint.manufacturing_date else extracted.get("manufacturing_date"),
+        "expiry_date": str(complaint.expiry_date) if complaint.expiry_date else extracted.get("expiry_date"),
+        "originating_site_block": complaint.originating_site_block,
+        "impacted_npm": complaint.impacted_npm,
+        "complaint_category": complaint.complaint_category,
+        "complaint_description": complaint.complaint_description,
+        "severity": complaint.severity,
+        "suggested_next_action": complaint.suggested_next_action,
+        "initial_risk_assessment": complaint.initial_risk_assessment,
+    }
+
     reply_text = (
         f"Document '{file.filename}' processed. "
         f"Logged complaint {complaint_num} ({complaint.product_name}, Lot {complaint.batch_no}) "
@@ -336,7 +389,7 @@ async def upload_copilot_document(
     return CopilotNewComplaintResponse(
         complaint_id=complaint.id,
         complaint_number=complaint_num,
-        extracted_fields=extracted,
+        extracted_fields=full_extracted,
         severity=sev,
         suggested_next_action=next_action,
         initial_risk_assessment=risk_assessment,
@@ -402,3 +455,16 @@ def _parse_date_safe(val: Any):
             return datetime.strptime(val.strip(), "%m/%Y").date()
         except Exception:
             return None
+
+
+def _is_greeting_message(text: str) -> bool:
+    cleaned = (text or "").strip().lower()
+    greetings = {
+        "hi", "hello", "hey", "help", "test", "who are you", "what can you do",
+        "good morning", "good afternoon", "good evening", "greetings", "hy", "hlo", "yo"
+    }
+    if cleaned in greetings:
+        return True
+    if len(cleaned) < 10 and not any(kw in cleaned for kw in ["batch", "tablet", "capsule", "vial", "mg", "ml", "lot", "defect", "quality", "amox", "metop", "pharma"]):
+        return True
+    return False
