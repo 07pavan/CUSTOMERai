@@ -311,36 +311,6 @@ export default function ComplaintForm({ onSuccess, showToast }) {
         <form onSubmit={handleSubmit} noValidate>
           <div className={styles.body}>
 
-            {/* AI Fast-Fill from Document Banner */}
-            <div className={styles.fastFillCard}>
-              <div>
-                <div className={styles.fastFillTitle}>
-                  <SparklesIcon /> AI Fast-Fill from Document
-                </div>
-                <div className={styles.fastFillSub}>
-                  Upload a PDF quality notice, .EML complaint email, or text report to auto-extract form fields.
-                </div>
-              </div>
-              <div>
-                <input
-                  type="file"
-                  ref={fastFillInputRef}
-                  style={{ display: 'none' }}
-                  accept={ACCEPTED_FILE_TYPES}
-                  onChange={handleFastFill}
-                />
-                <button
-                  type="button"
-                  className={styles.btnGhost}
-                  style={{ borderColor: 'hsl(270, 50%, 75%)', color: 'hsl(270, 70%, 40%)' }}
-                  onClick={() => fastFillInputRef.current?.click()}
-                  disabled={isExtracting}
-                >
-                  {isExtracting ? 'AI Extracting…' : 'Upload Document to Fast-Fill'}
-                </button>
-              </div>
-            </div>
-
             {/* §1 ORIGIN & CUSTOMER DETAILS */}
             <section className={styles.section}>
               <div className={styles.sectionLabel}>

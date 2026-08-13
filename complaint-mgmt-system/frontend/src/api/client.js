@@ -31,7 +31,7 @@ const client = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 15_000, // 15 s — generous for AI assessment endpoints
+  timeout: 60_000, // 60 s — supports full LangGraph LLM processing & retries
 });
 
 // ---------------------------------------------------------------------------
