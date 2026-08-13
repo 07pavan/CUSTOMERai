@@ -43,59 +43,61 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    conn = op.get_bind()
     # ------------------------------------------------------------------
     # 1. Create PostgreSQL ENUM types (idempotent)
     # ------------------------------------------------------------------
-    op.execute("""
-        DO $$ BEGIN
-            CREATE TYPE sourcetype AS ENUM ('email', 'portal', 'paper', 'phone');
-        EXCEPTION WHEN duplicate_object THEN null;
-        END $$;
-    """)
+    if conn.dialect.name == "postgresql":
+        op.execute("""
+            DO $$ BEGIN
+                CREATE TYPE sourcetype AS ENUM ('email', 'portal', 'paper', 'phone');
+            EXCEPTION WHEN duplicate_object THEN null;
+            END $$;
+        """)
 
-    op.execute("""
-        DO $$ BEGIN
-            CREATE TYPE category AS ENUM (
-                'quality', 'adverse_event', 'counterfeit', 'other'
-            );
-        EXCEPTION WHEN duplicate_object THEN null;
-        END $$;
-    """)
+        op.execute("""
+            DO $$ BEGIN
+                CREATE TYPE category AS ENUM (
+                    'quality', 'adverse_event', 'counterfeit', 'other'
+                );
+            EXCEPTION WHEN duplicate_object THEN null;
+            END $$;
+        """)
 
-    op.execute("""
-        DO $$ BEGIN
-            CREATE TYPE severity AS ENUM ('critical', 'major', 'minor');
-        EXCEPTION WHEN duplicate_object THEN null;
-        END $$;
-    """)
+        op.execute("""
+            DO $$ BEGIN
+                CREATE TYPE severity AS ENUM ('critical', 'major', 'minor');
+            EXCEPTION WHEN duplicate_object THEN null;
+            END $$;
+        """)
 
-    op.execute("""
-        DO $$ BEGIN
-            CREATE TYPE status AS ENUM (
-                'new', 'under_investigation', 'capa_assigned', 'closed'
-            );
-        EXCEPTION WHEN duplicate_object THEN null;
-        END $$;
-    """)
+        op.execute("""
+            DO $$ BEGIN
+                CREATE TYPE status AS ENUM (
+                    'new', 'under_investigation', 'capa_assigned', 'closed'
+                );
+            EXCEPTION WHEN duplicate_object THEN null;
+            END $$;
+        """)
 
-    op.execute("""
-        DO $$ BEGIN
-            CREATE TYPE risklevel AS ENUM ('high', 'medium', 'low');
-        EXCEPTION WHEN duplicate_object THEN null;
-        END $$;
-    """)
+        op.execute("""
+            DO $$ BEGIN
+                CREATE TYPE risklevel AS ENUM ('high', 'medium', 'low');
+            EXCEPTION WHEN duplicate_object THEN null;
+            END $$;
+        """)
 
-    # ------------------------------------------------------------------
-    # 2. Sequence for complaint_number generation
-    # ------------------------------------------------------------------
-    op.execute("""
-        CREATE SEQUENCE IF NOT EXISTS complaint_number_seq
-            START WITH 1
-            INCREMENT BY 1
-            NO MINVALUE
-            NO MAXVALUE
-            CACHE 1;
-    """)
+        # ------------------------------------------------------------------
+        # 2. Sequence for complaint_number generation
+        # ------------------------------------------------------------------
+        op.execute("""
+            CREATE SEQUENCE IF NOT EXISTS complaint_number_seq
+                START WITH 1
+                INCREMENT BY 1
+                NO MINVALUE
+                NO MAXVALUE
+                CACHE 1;
+        """)
     # Usage (in Python service layer):
     #   seq = await db.scalar(text("SELECT nextval('complaint_number_seq')"))
     #   number = f"CMP-{year}-{seq:04d}"

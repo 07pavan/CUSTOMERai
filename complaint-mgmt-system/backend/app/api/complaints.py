@@ -145,12 +145,20 @@ async def create_complaint(
     complaint = Complaint(
         complaint_number=complaint_number,
         product_name=payload.product_name,
+        product_strength=payload.product_strength,
         batch_no=payload.batch_no,
-        complainant_name=payload.complainant_name,
+        affected_quantity=payload.affected_quantity,
+        manufacturing_date=payload.manufacturing_date,
+        expiry_date=payload.expiry_date,
+        originating_site_block=payload.originating_site_block,
+        impacted_npm=payload.impacted_npm,
+        customer_name=payload.customer_name,
         complainant_contact=payload.complainant_contact,
-        source_type=payload.source_type,
-        description=payload.description,
-        category=payload.category,
+        complaint_source=payload.complaint_source,
+        complaint_description=payload.complaint_description,
+        complaint_category=payload.complaint_category,
+        suggested_next_action=payload.suggested_next_action,
+        initial_risk_assessment=payload.initial_risk_assessment,
         # severity: intentionally omitted — starts NULL (assessed by AI later)
         # status: uses server_default="new"
     )
