@@ -33,6 +33,64 @@
   margin: 0.25rem 0 0;
 }
 
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.liveBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.625rem;
+  background: hsl(145, 60%, 94%);
+  color: hsl(145, 65%, 28%);
+  border: 1px solid hsl(145, 55%, 80%);
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.livePulse {
+  width: 6px;
+  height: 6px;
+  background: hsl(145, 70%, 40%);
+  border-radius: 50%;
+  animation: pulseDot 1.6s ease-in-out infinite;
+}
+
+@keyframes pulseDot {
+  0% { transform: scale(0.9); opacity: 1; }
+  50% { transform: scale(1.4); opacity: 0.4; }
+  100% { transform: scale(0.9); opacity: 1; }
+}
+
+.refreshBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  border: 1px solid hsl(220, 15%, 82%);
+  border-radius: 0.4rem;
+  background: #fff;
+  color: hsl(220, 15%, 35%);
+  cursor: pointer;
+  transition: all 130ms;
+}
+
+.refreshBtn:hover {
+  background: hsl(220, 20%, 96%);
+  color: hsl(220, 80%, 45%);
+  border-color: hsl(220, 70%, 75%);
+}
+
 .timeframeSelector {
   display: inline-flex;
   align-items: center;

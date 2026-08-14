@@ -33,6 +33,12 @@ class TrendDataPoint(BaseModel):
     total: int = 0
 
 
+class StatusCount(BaseModel):
+    status: str = Field(..., description="Status key")
+    label: str = Field(..., description="Human-readable label")
+    count: int
+
+
 class AnalyticsSummaryResponse(BaseModel):
     """
     Summary response for GET /api/v1/analytics/summary
@@ -47,5 +53,6 @@ class AnalyticsSummaryResponse(BaseModel):
 
     severity_breakdown: List[SeverityCount]
     category_breakdown: List[CategoryCount]
+    status_breakdown: Optional[List[StatusCount]] = None
     top_products: List[ProductCount]
     trends_over_time: List[TrendDataPoint]

@@ -47,7 +47,16 @@ const CustomTooltip = ({ active, payload, label }) => {
 export default function Dashboard({ onNavigate }) {
   const dispatch = useAppDispatch();
   const [days, setDays] = useState(30);
-  const { data: analytics, isLoading, isError } = useFetchAnalyticsSummaryQuery(days);
+  const {
+    data: analytics,
+    isLoading,
+    isFetching,
+    isError,
+    refetch,
+  } = useFetchAnalyticsSummaryQuery(days, {
+    pollingInterval: 3000, // Automatic real-time polling every 3 seconds
+    refetchOnMountOrArgChange: true,
+  });
 
   const handleKpiClick = (type) => {
     if (!onNavigate) return;
@@ -81,6 +90,9 @@ export default function Dashboard({ onNavigate }) {
             <h1 className={styles.title}>Quality Analytics &amp; Complaint Trends</h1>
             <p className={styles.subtitle}>Could not load analytics summary. Please check backend connection.</p>
           </div>
+          <button className={styles.refreshBtn} onClick={() => refetch()}>
+            ⟳ Retry Connection
+          </button>
         </div>
       </div>
     );
@@ -93,6 +105,7 @@ export default function Dashboard({ onNavigate }) {
     active_investigations = 0,
     severity_breakdown = [],
     category_breakdown = [],
+    status_breakdown = [],
     top_products = [],
     trends_over_time = [],
   } = analytics || {};
@@ -109,16 +122,32 @@ export default function Dashboard({ onNavigate }) {
           </p>
         </div>
 
-        <div className={styles.timeframeSelector}>
-          {[30, 60, 90].map(d => (
-            <button
-              key={d}
-              className={`${styles.timeframeBtn} ${days === d ? styles.timeframeBtnActive : ''}`}
-              onClick={() => setDays(d)}
-            >
-              Last {d} Days
-            </button>
-          ))}
+        <div className={styles.headerRight}>
+          <span className={styles.liveBadge} title="Real-time background sync active">
+            <span className={styles.livePulse} />
+            Live QMS Stream
+          </span>
+
+          <button
+            className={styles.refreshBtn}
+            onClick={() => refetch()}
+            disabled={isFetching}
+            title="Refresh analytics data"
+          >
+            {isFetching ? '⟳ Refreshing…' : '⟳ Refresh'}
+          </button>
+
+          <div className={styles.timeframeSelector}>
+            {[30, 60, 90].map(d => (
+              <button
+                key={d}
+                className={`${styles.timeframeBtn} ${days === d ? styles.timeframeBtnActive : ''}`}
+                onClick={() => setDays(d)}
+              >
+                Last {d} Days
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -293,6 +322,50 @@ export default function Dashboard({ onNavigate }) {
                   {category_breakdown.map((entry, index) => (
                     <Cell key={index} fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]} />
                   ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* 5. Investigation Workflow & Lifecycle Status (Horizontal Bar Chart) */}
+        <div className={`${styles.chartCard} ${styles.chartCardSpan12}`}>
+          <div className={styles.chartHeader}>
+            <div>
+              <h3 className={styles.chartTitle}>QMS Lifecycle &amp; Investigation Workflow Stages</h3>
+              <p className={styles.chartSubtitle}>Real-time distribution of complaints across lifecycle stages</p>
+            </div>
+          </div>
+          <div className={styles.chartBody} style={{ height: 220 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={status_breakdown}
+                layout="vertical"
+                margin={{ top: 5, right: 25, left: 60, bottom: 5 }}
+                onClick={(e) => {
+                  if (e && e.activePayload && e.activePayload[0]) {
+                    const st = e.activePayload[0].payload.status;
+                    dispatch(clearFilters());
+                    dispatch(setStatusFilter(st));
+                    onNavigate?.('list');
+                  }
+                }}
+              >
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(220, 15%, 92%)" />
+                <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
+                <YAxis dataKey="label" type="category" width={140} tick={{ fontSize: 12, fontWeight: 600 }} />
+                <Tooltip />
+                <Bar dataKey="count" name="Complaints" radius={[0, 4, 4, 0]}>
+                  {status_breakdown.map((entry) => {
+                    const colorMap = {
+                      ready_to_commit:     '#3b82f6',
+                      new:                 '#06b6d4',
+                      under_investigation: '#f59e0b',
+                      capa_assigned:       '#8b5cf6',
+                      closed:              '#10b981',
+                    };
+                    return <Cell key={entry.status} fill={colorMap[entry.status] || '#64748b'} cursor="pointer" />;
+                  })}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>

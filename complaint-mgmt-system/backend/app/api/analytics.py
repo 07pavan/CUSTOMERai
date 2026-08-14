@@ -86,7 +86,7 @@ async def get_analytics_summary(
     unassessed_count: int = await db.scalar(unassessed_stmt) or 0
 
     active_stmt = select(func.count(Complaint.id)).where(
-        Complaint.status.in_([Status.new, Status.under_investigation, Status.capa_assigned])
+        Complaint.status.in_([Status.new, Status.ready_to_commit, Status.under_investigation, Status.capa_assigned])
     )
     active_investigations: int = await db.scalar(active_stmt) or 0
 
@@ -98,7 +98,7 @@ async def get_analytics_summary(
     ]
 
     # -----------------------------------------------------------------------
-    # 2. Category Breakdown
+    # 2. Category Breakdown & Status Breakdown
     # -----------------------------------------------------------------------
     cat_stmt = (
         select(Complaint.complaint_category, func.count(Complaint.id))
@@ -114,6 +114,32 @@ async def get_analytics_summary(
             count=cat_dict.get(cat_key, 0),
         )
         for cat_key in ["quality", "adverse_event", "counterfeit", "other"]
+    ]
+
+    # Status counts
+    stat_stmt = (
+        select(Complaint.status, func.count(Complaint.id))
+        .group_by(Complaint.status)
+    )
+    stat_results = await db.execute(stat_stmt)
+    stat_dict = {st.value if hasattr(st, "value") else str(st): count for st, count in stat_results}
+
+    STATUS_LABELS_MAP = {
+        "ready_to_commit":     "Ready to Commit",
+        "new":                 "New Intake",
+        "under_investigation": "Under Investigation",
+        "capa_assigned":       "CAPA Assigned",
+        "closed":              "Closed / Resolved",
+    }
+
+    from app.schemas.analytics import StatusCount
+    status_breakdown = [
+        StatusCount(
+            status=s_key,
+            label=STATUS_LABELS_MAP.get(s_key, s_key.replace("_", " ").title()),
+            count=stat_dict.get(s_key, 0),
+        )
+        for s_key in ["ready_to_commit", "new", "under_investigation", "capa_assigned", "closed"]
     ]
 
     # -----------------------------------------------------------------------
@@ -189,6 +215,7 @@ async def get_analytics_summary(
         active_investigations=active_investigations,
         severity_breakdown=severity_breakdown,
         category_breakdown=category_breakdown,
+        status_breakdown=status_breakdown,
         top_products=top_products,
         trends_over_time=timeline,
     )
