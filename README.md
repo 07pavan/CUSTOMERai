@@ -1,4 +1,4 @@
-# 🏥 CUSTOMERai — AI-Powered Quality & Complaint Management System
+# 🏥 Pharmaceutical_AI — AI-Powered Quality & Complaint Management System
 
 > **Enterprise-grade Medical Device & Pharmaceutical Quality Management System (QMS) powered by LangGraph multi-agent intelligence, FastAPI, React 19, and Groq Cloud LLMs.**
 
