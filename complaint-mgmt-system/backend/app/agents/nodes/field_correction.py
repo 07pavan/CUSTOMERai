@@ -32,10 +32,11 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Allowed field names
+# Allowed field names across all 6 sections of the Intake Form
 ALLOWED_M1_FIELDS = {
     "complaint_source",
     "customer_name",
+    "complainant_contact",
     "product_name",
     "product_strength",
     "batch_no",
@@ -46,58 +47,52 @@ ALLOWED_M1_FIELDS = {
     "impacted_npm",
     "complaint_category",
     "complaint_description",
+    "severity",
+    "suggested_next_action",
+    "initial_risk_assessment",
 }
 
 FIELD_CORRECTION_SYSTEM_PROMPT = """
-You are a Smart Field Extraction Specialist for a Pharmaceutical QMS complaint form.
+You are a Dynamic Field Extraction Specialist for a Pharmaceutical QMS complaint form.
 
-Your role is DUAL — handle both corrections AND fill-ins from natural conversation:
+Your role is DUAL — handle both dynamic corrections AND conversational fill-ins for ALL 16 fields across the intake form:
 
 SCENARIO A — CORRECTION:
-  The user explicitly corrects an existing field value.
-  Example: "actually the batch is AMX240603" → {"batch_no": "AMX240603"}
+  The user explicitly corrects or updates an existing field value.
+  Example: "actually the batch is AMX240603, quantity is 15 bottles" → {"batch_no": "AMX240603", "affected_quantity": "15 bottles"}
+  Example: "change severity to critical and site to Packaging Line 2" → {"severity": "critical", "originating_site_block": "Packaging Line 2"}
+  Example: "customer phone number is +1-555-0199" → {"complainant_contact": "+1-555-0199"}
 
-SCENARIO B — FILL-IN (most common in multi-turn chat):
-  The AI asked for a missing field (visible in CONVERSATION HISTORY),
-  and the user is now answering that question — even if they don't mention the field name.
+SCENARIO B — FILL-IN (multi-turn conversation):
+  The AI asked for missing fields or the user is providing new details:
   Example:
-    History: Assistant: "Could you please tell me the Expiry Date?"
-    User: "2026/feb/2"
-    → {"expiry_date": "2026/feb/2"}
-
-  Example:
-    History: Assistant: "What is the Customer/Reporter Name?"
-    User: "Apollo Pharmacy"
-    → {"customer_name": "Apollo Pharmacy"}
-
-  Example:
-    History: Assistant: "Missing: Affected Quantity and Manufacturing Date"
-    User: "manufacturing data is 2025/2/25 and expiry date is 2026/feb/2"
-    → {"manufacturing_date": "2025/2/25", "expiry_date": "2026/feb/2"}
+    History: Assistant: "Could you please provide the Expiry Date and NPM code?"
+    User: "2027/12/31 and NPM-8821"
+    → {"expiry_date": "2027/12/31", "impacted_npm": "NPM-8821"}
 
 ALLOWED FIELD NAMES AND VALUE RULES:
 - "complaint_source"       : one of 'pharmacy', 'email', 'portal', 'phone', 'paper'
-- "customer_name"          : string — name of pharmacy, hospital, patient, or reporter
+- "customer_name"          : string — name of pharmacy, hospital, clinic, patient, or reporter
+- "complainant_contact"    : string — phone number, email address, or contact details
 - "product_name"           : string — brand or generic drug name
 - "product_strength"       : string — e.g. '500mg', '10mg/mL', '5%'
 - "batch_no"               : string — UPPERCASE, e.g. 'AMX240602'
-- "affected_quantity"      : string — e.g. '48 capsules', '3 vials', '1500 tablets'
-- "manufacturing_date"     : string — return EXACTLY as user wrote it, e.g. '2025/2/25'
-- "expiry_date"            : string — return EXACTLY as user wrote it, e.g. '2026/feb/2'
-- "originating_site_block" : string — manufacturing block or site
-- "impacted_npm"           : string — non-product material ID, e.g. 'NPM-9901'
+- "affected_quantity"      : string — e.g. '48 capsules', '3 vials', '1500 tablets', '4 bottles'
+- "manufacturing_date"     : string — e.g. '2025/2/25'
+- "expiry_date"            : string — e.g. '2026/feb/2'
+- "originating_site_block" : string — manufacturing block, plant, or facility site
+- "impacted_npm"           : string — non-product material ID or packaging lot
 - "complaint_category"     : one of 'quality', 'adverse_event', 'counterfeit', 'other'
-- "complaint_description"  : string — description of the defect or complaint
+- "complaint_description"  : string — defect details or clinical complaint description
+- "severity"               : one of 'critical', 'major', 'minor'
+- "suggested_next_action"  : string — immediate QA containment action
+- "initial_risk_assessment": string — risk rationale or impact evaluation
 
 STRICT OUTPUT RULES:
-1. Return ONLY a JSON object with fields that should be CHANGED or FILLED.
-2. Do NOT re-include fields that already have correct values and were not mentioned.
-3. Do NOT invent values — only extract what the user explicitly stated.
-4. Use the CONVERSATION HISTORY to understand what the AI was asking for, then map
-   the user's answer to the right field name.
-5. For date fields, return the value exactly as the user typed it (e.g. "2025/2/25").
-   The system will parse it into the correct format.
-6. If nothing should change, return {}.
+1. Return ONLY a valid JSON object with fields that should be CHANGED or FILLED.
+2. Do NOT re-include unchanged fields.
+3. Do NOT invent values — only extract what the user explicitly stated or confirmed.
+4. If nothing should change, return {}.
 """
 
 FIELD_CORRECTION_USER_TEMPLATE = """
@@ -269,13 +264,25 @@ def field_correction_node_sync(state: ComplaintState) -> ComplaintState:
 # ---------------------------------------------------------------------------
 
 def _filter_and_clean_diff(raw_diff: Dict[str, Any]) -> Dict[str, Any]:
-    """Validates and cleans the raw LLM output diff."""
+    """Validates and cleans the raw LLM output diff for all 16 intake fields."""
     cleaned = {}
     alias_map = {
         "complainant_name": "customer_name",
+        "reporter_name": "customer_name",
+        "customer": "customer_name",
+        "contact": "complainant_contact",
+        "phone": "complainant_contact",
+        "phone_number": "complainant_contact",
+        "email": "complainant_contact",
+        "contact_info": "complainant_contact",
         "source_type": "complaint_source",
+        "source": "complaint_source",
         "category": "complaint_category",
         "description": "complaint_description",
+        "defect_description": "complaint_description",
+        "defect": "complaint_description",
+        "strength": "product_strength",
+        "dosage": "product_strength",
         "mfg_date": "manufacturing_date",
         "manufacture_date": "manufacturing_date",
         "exp_date": "expiry_date",
@@ -283,8 +290,22 @@ def _filter_and_clean_diff(raw_diff: Dict[str, Any]) -> Dict[str, Any]:
         "lot_no": "batch_no",
         "lot_number": "batch_no",
         "batch_number": "batch_no",
+        "lot": "batch_no",
         "qty": "affected_quantity",
         "quantity": "affected_quantity",
+        "site": "originating_site_block",
+        "facility": "originating_site_block",
+        "plant": "originating_site_block",
+        "block": "originating_site_block",
+        "npm": "impacted_npm",
+        "npm_code": "impacted_npm",
+        "non_product_material": "impacted_npm",
+        "risk": "severity",
+        "risk_level": "severity",
+        "action": "suggested_next_action",
+        "next_action": "suggested_next_action",
+        "risk_assessment": "initial_risk_assessment",
+        "risk_rationale": "initial_risk_assessment",
     }
 
     for k, v in raw_diff.items():
@@ -292,8 +313,10 @@ def _filter_and_clean_diff(raw_diff: Dict[str, Any]) -> Dict[str, Any]:
         if target_k in ALLOWED_M1_FIELDS and v is not None:
             if target_k == "batch_no" and isinstance(v, str):
                 cleaned[target_k] = v.strip().upper()
+            elif target_k == "severity" and isinstance(v, str):
+                s = v.strip().lower()
+                cleaned[target_k] = s if s in {"critical", "major", "minor"} else "major"
             elif target_k in ("complaint_source",) and isinstance(v, str):
-                # Normalise source to allowed enum values
                 src = v.strip().lower()
                 cleaned[target_k] = src if src in {"pharmacy", "email", "portal", "phone", "paper"} else "email"
             elif target_k in ("complaint_category",) and isinstance(v, str):

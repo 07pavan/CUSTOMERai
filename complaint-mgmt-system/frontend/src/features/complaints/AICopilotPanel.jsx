@@ -386,6 +386,65 @@ export default function AICopilotPanel({ showToast, onSubmitRequest }) {
         </div>
       )}
 
+      {/* ─── Dynamic Quick Action Chips ─── */}
+      <div className={styles.chipsBar}>
+        <button
+          type="button"
+          className={styles.chipBtn}
+          onClick={() => {
+            setInputMessage("What fields are still missing on this form?");
+            inputRef.current?.focus();
+          }}
+          disabled={isLoading}
+        >
+          ⚡ Check Missing
+        </button>
+        <button
+          type="button"
+          className={styles.chipBtn}
+          onClick={() => {
+            setInputMessage("Suggest standard CAPA actions for this defect");
+            inputRef.current?.focus();
+          }}
+          disabled={isLoading}
+        >
+          📋 Suggest CAPA
+        </button>
+        <button
+          type="button"
+          className={styles.chipBtn}
+          onClick={() => {
+            setInputMessage("Suggest root cause hypotheses for this issue");
+            inputRef.current?.focus();
+          }}
+          disabled={isLoading}
+        >
+          🔬 Root Cause
+        </button>
+        <button
+          type="button"
+          className={styles.chipBtn}
+          onClick={() => {
+            setInputMessage("Summarize this complaint for QA review");
+            inputRef.current?.focus();
+          }}
+          disabled={isLoading}
+        >
+          📊 Summarize
+        </button>
+        <button
+          type="button"
+          className={`${styles.chipBtn} ${styles.chipClear}`}
+          onClick={() => {
+            setInputMessage("clear the form");
+            inputRef.current?.focus();
+          }}
+          disabled={isLoading}
+        >
+          🗑️ Clear Form
+        </button>
+      </div>
+
       {/* ─── Input Form ─── */}
       <form className={styles.inputForm} onSubmit={handleSendMessage}>
         <input
@@ -410,8 +469,8 @@ export default function AICopilotPanel({ showToast, onSubmitRequest }) {
           type="text"
           className={styles.textInput}
           placeholder={complaintId
-            ? "Type corrections or 'submit' to commit…"
-            : "Paste complaint email or describe issue…"
+            ? "Type any field change (e.g. 'batch is X, qty is Y') or ask QA questions…"
+            : "Describe defect, paste email, or ask QA questions…"
           }
           value={inputMessage}
           onChange={(e) => setInputMessage(e.target.value)}
@@ -429,7 +488,7 @@ export default function AICopilotPanel({ showToast, onSubmitRequest }) {
       </form>
 
       {/* ─── Footer ─── */}
-      <div className={styles.footer}>AIVOA · POWERED BY LANGGRAPH + GROQ</div>
+      <div className={styles.footer}>CUSTOMERHELPERAI · REAL-TIME PHARMA QMS COPILOT</div>
     </div>
   );
 }

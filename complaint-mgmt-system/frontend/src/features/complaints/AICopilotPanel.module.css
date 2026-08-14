@@ -260,6 +260,68 @@
   40% { transform: scale(1.2); opacity: 1; filter: drop-shadow(0 0 3px #818cf8); }
 }
 
+/* ─── Dynamic Quick Action Chips Bar ─── */
+.chipsBar {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.875rem;
+  background: hsl(220, 25%, 98%);
+  border-top: 1px solid hsl(220, 15%, 92%);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.chipsBar::-webkit-scrollbar {
+  display: none;
+}
+
+.chipBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.71875rem;
+  font-weight: 600;
+  font-family: var(--font-sans, 'Inter', sans-serif);
+  color: hsl(220, 25%, 35%);
+  background: #ffffff;
+  border: 1px solid hsl(220, 15%, 85%);
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 140ms ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.chipBtn:hover:not(:disabled) {
+  background: #4f46e5;
+  color: #ffffff;
+  border-color: #4338ca;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(79, 70, 229, 0.25);
+}
+
+.chipBtn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.chipBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.chipClear {
+  color: hsl(0, 60%, 45%);
+}
+
+.chipClear:hover:not(:disabled) {
+  background: #ef4444 !important;
+  color: #ffffff !important;
+  border-color: #dc2626 !important;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.25) !important;
+}
+
 /* ─── Input Bar ─── */
 .inputForm {
   display: flex;
