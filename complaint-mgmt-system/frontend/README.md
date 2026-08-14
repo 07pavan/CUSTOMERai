@@ -1,16 +1,73 @@
-# React + Vite
+# 🎨 Frontend — CustomerHelperAI React Portal
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+> **Modern React 19 single-page application for pharmaceutical & medical complaint management, interactive AI copilot assistance, and real-time quality analytics.**
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🚀 Overview
 
-## React Compiler
+The frontend is built with **React 19**, **Vite**, and **Redux Toolkit**, providing a responsive and fluid interface for quality engineers, clinical investigators, and administrators.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Core Features
+- 🤖 **3D Animated Robot Copilot (`RobotAvatar.jsx`)**: Canvas-rendered interactive avatar with dynamic idle, thinking, and talking states.
+- 📋 **Multi-Field Complaint Intake Form (`ComplaintForm.jsx`)**: 16+ structured fields with live bi-directional sync to the AI Copilot.
+- 💬 **Copilot Chat & Field Auto-Population (`CopilotChat.jsx`)**: Chat interface that parses unstructured emails or reports into form values with one click.
+- 📊 **Executive Quality Dashboard (`DashboardView.jsx`)**: Interactive Recharts analytics covering risk levels, product trends, defect types, and resolution times.
+- 📑 **Complaint Management Table (`ComplaintsList.jsx`)**: Searchable, filterable, and paginated table with real-time status badges and detail drawers.
 
-## Expanding the Oxlint configuration
+---
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+## 📁 Source Layout
+
+```
+src/
+├── api/                     # RTK Query API client (axiosBaseQuery)
+│   ├── baseQuery.js         # Axios base query with error handling
+│   ├── complaintsApi.js     # RTK endpoints for complaints & documents
+│   ├── copilotApi.js        # RTK endpoints for AI copilot chat & parsing
+│   └── analyticsApi.js      # RTK endpoints for executive dashboard metrics
+├── app/
+│   └── store.js             # Central Redux store configuration
+├── components/
+│   └── RobotAvatar.jsx      # Canvas-based 3D robot avatar component
+├── features/
+│   ├── complaints/          # Form, list views, and complaint detail drawers
+│   ├── copilot/             # Copilot chat panel and quick action handlers
+│   └── dashboard/           # Analytics KPIs and Recharts charts
+├── App.jsx                  # Main application router and state synchronization
+├── main.jsx                 # React root mounting
+└── index.css                # Global styles and modern theme design tokens
+```
+
+---
+
+## 🛠 Available Scripts
+
+In the frontend directory:
+
+```bash
+# Install dependencies
+npm install
+
+# Start Vite local development server with HMR
+npm run dev
+
+# Build production bundle with Vite
+npm run build
+
+# Preview production build locally
+npm run preview
+
+# Run Oxlint for fast static analysis
+npx oxlint
+```
+
+---
+
+## ⚙️ Environment Configuration
+
+Create a `.env` file in the `frontend` folder:
+
+```env
+VITE_API_BASE_URL=http://localhost:8000
+```
