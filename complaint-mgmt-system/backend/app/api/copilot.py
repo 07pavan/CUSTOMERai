@@ -12,7 +12,7 @@ and atomic 21 CFR Part 11 audit logging (`ai_extraction` / `ai_correction`).
 import asyncio
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -40,12 +40,71 @@ router = APIRouter(prefix="/copilot", tags=["AI Copilot"])
 
 
 # ---------------------------------------------------------------------------
+# Helper functions
+# ---------------------------------------------------------------------------
+def _is_clear_intent(text: str) -> bool:
+    """Returns True if the user asks to clear or reset the form/chat."""
+    cleaned = (text or "").strip().lower()
+    clear_phrases = {
+        "clear", "reset", "clear form", "reset form", "clear chat", "reset chat",
+        "start over", "new complaint", "clean form", "erase", "delete form",
+        "clear all", "reset all",
+    }
+    return cleaned in clear_phrases or any(cleaned.startswith(p) for p in clear_phrases)
+
+
+def _sync_manual_form_edits(complaint: Complaint, manual_fields: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Syncs manual edits made on the frontend form directly into the Complaint model.
+    Returns the dictionary of fields synced.
+    """
+    if not manual_fields or not isinstance(manual_fields, dict):
+        return {}
+
+    synced = {}
+    field_map = {
+        "customer_name":          lambda v: str(v).strip(),
+        "complainant_contact":    lambda v: str(v).strip() or None,
+        "product_name":           lambda v: str(v).strip(),
+        "product_strength":       lambda v: str(v).strip() or None,
+        "batch_no":               lambda v: str(v).strip().upper(),
+        "affected_quantity":      lambda v: str(v).strip() or None,
+        "manufacturing_date":     lambda v: _parse_date_safe(str(v)),
+        "expiry_date":            lambda v: _parse_date_safe(str(v)),
+        "originating_site_block": lambda v: str(v).strip() or None,
+        "impacted_npm":           lambda v: str(v).strip() or None,
+        "complaint_category":     lambda v: str(v).strip().lower() or "quality",
+        "complaint_description":  lambda v: str(v).strip(),
+        "severity":               lambda v: str(v).strip().lower() or None,
+        "suggested_next_action":  lambda v: str(v).strip() or None,
+        "initial_risk_assessment":lambda v: str(v).strip() or None,
+    }
+
+    for key, transform in field_map.items():
+        if key in manual_fields:
+            val = manual_fields[key]
+            if val is not None and str(val).strip() != "":
+                parsed = transform(val)
+                curr = getattr(complaint, key, None)
+                if parsed != curr and parsed is not None:
+                    setattr(complaint, key, parsed)
+                    synced[key] = parsed
+
+    return synced
+
+
+# ---------------------------------------------------------------------------
 # POST /api/v1/copilot/message
 # ---------------------------------------------------------------------------
 @router.post(
     "/message",
-    summary="Process a copilot chat message or field correction",
-    response_model=None,
+    response_model=Union[CopilotNewComplaintResponse, CopilotCorrectionResponse],
+    summary="Process conversational message from AI Copilot panel",
+    description=(
+        "Dual-purpose endpoint for the Copilot conversational sidebar: "
+        "if `complaint_id` is null, runs intake triage pipeline; "
+        "if `complaint_id` is provided, syncs manual form edits, runs corrections, or answers QA queries."
+    ),
     dependencies=[Depends(require_user)],
 )
 async def process_copilot_message(
@@ -55,19 +114,32 @@ async def process_copilot_message(
 ):
     """
     Handles conversational copilot messages:
-      - complaint_id IS NULL     ➔ Run full AI intake pipeline, log new complaint + assessment, return confirmation.
-      - complaint_id IS PRESENT  ➔ Run field correction agent, apply diff to complaint record, return confirmation.
-      - message is "submit"/"commit" ➔ Return action=submit so the frontend triggers form submission.
+      - message is "clear"/"reset" ➔ Return action=clear to reset form & chat.
+      - message is "submit"/"commit" ➔ Return action=submit to trigger form submission.
+      - complaint_id IS PRESENT  ➔ Sync manual edits, run field correction or QA guidance.
+      - complaint_id IS NULL     ➔ Run full AI intake pipeline or conversational QA guidance.
     """
     # -----------------------------------------------------------------------
-    # Case A: complaint_id IS PRESENT ➔ Field Correction
+    # Case 0A: User wants to clear / reset form
     # -----------------------------------------------------------------------
+    if _is_clear_intent(payload.message):
+        return CopilotCorrectionResponse(
+            complaint_id=None,
+            updated_fields={},
+            reply_text="🗑️ Form and chat cleared. You can start a fresh complaint intake now.",
+            action="clear",
+        )
+
     # -----------------------------------------------------------------------
-    # Case 0: User wants to submit the complaint via chat
+    # Case 0B: User wants to submit the complaint via chat
     # -----------------------------------------------------------------------
     if payload.complaint_id is not None and _is_submit_intent(payload.message):
         complaint = await db.get(Complaint, payload.complaint_id)
         if complaint:
+            if payload.current_form_fields:
+                _sync_manual_form_edits(complaint, payload.current_form_fields)
+                await db.flush()
+
             missing_prompt = _get_missing_fields_prompt(complaint)
             all_complete = "All key QA fields are now complete" in missing_prompt
             if all_complete:
@@ -84,6 +156,9 @@ async def process_copilot_message(
                     reply_text=f"⚠️ Cannot submit yet — there are still missing fields.{missing_prompt}",
                 )
 
+    # -----------------------------------------------------------------------
+    # Case A: complaint_id IS PRESENT ➔ Sync Manual Edits + Run Correction/QA Agent
+    # -----------------------------------------------------------------------
     if payload.complaint_id is not None:
         complaint = await db.get(Complaint, payload.complaint_id)
         if not complaint:
@@ -92,21 +167,24 @@ async def process_copilot_message(
                 detail=f"Complaint with ID {payload.complaint_id} not found.",
             )
 
+        # 1. Sync manual form edits made on frontend form
+        if payload.current_form_fields:
+            _sync_manual_form_edits(complaint, payload.current_form_fields)
+            await db.flush()
+
         # Build history list from request payload
         history = [
             {"role": m.role, "content": m.content}
             for m in (payload.chat_history or [])
         ]
 
-        # -----------------------------------------------------------------------
-        # Conversational Fallback: message is a question or acknowledgement,
-        # NOT a field correction — reply naturally without running the diff agent.
-        # -----------------------------------------------------------------------
+        # 2. Conversational query / general question / QA assistance
         if _is_conversational_query(payload.message):
             reply = await _generate_conversational_reply(
                 complaint=complaint,
                 user_message=payload.message,
                 chat_history=history,
+                current_form=payload.current_form_fields,
             )
             return CopilotCorrectionResponse(
                 complaint_id=complaint.id,
@@ -114,6 +192,7 @@ async def process_copilot_message(
                 reply_text=reply,
             )
 
+        # 3. Field correction / update diff
         existing_fields = _complaint_to_dict(complaint)
         correction_result = await apply_correction(
             existing_fields=existing_fields,
@@ -152,7 +231,7 @@ async def process_copilot_message(
     # Case B: complaint_id IS NULL ➔ decide between chat vs. intake pipeline
     # -----------------------------------------------------------------------
 
-    # Pure greeting / no-data message → welcome reply, no complaint created
+    # Pure greeting / no-data message → welcome reply, with awareness of manual form values
     if _is_greeting_message(payload.message):
         reply = await _generate_initial_reply(
             user_message=payload.message,
@@ -160,18 +239,19 @@ async def process_copilot_message(
                 {"role": m.role, "content": m.content}
                 for m in (payload.chat_history or [])
             ],
+            current_form=payload.current_form_fields,
         )
         return CopilotNewComplaintResponse(reply_text=reply)
 
-    # Conversational but not a greeting (question, chit-chat, non-data message)
-    # → answer naturally and guide toward complaint data, no pipeline
-    if not _has_complaint_substance(payload.message):
+    # Conversational questions, requests, or instructions (not new complaint intake text)
+    if _is_conversational_query(payload.message) or not _has_complaint_substance(payload.message):
         reply = await _generate_initial_reply(
             user_message=payload.message,
             chat_history=[
                 {"role": m.role, "content": m.content}
                 for m in (payload.chat_history or [])
             ],
+            current_form=payload.current_form_fields,
         )
         return CopilotNewComplaintResponse(reply_text=reply)
 
@@ -674,78 +754,111 @@ def _parse_date_safe(val: Any):
 
 def _is_conversational_query(text: str) -> bool:
     """
-    Returns True ONLY if the message is clearly a question or brief acknowledgement
-    with NO field data embedded in it.
-
-    Design rule: when in doubt, let the field-correction agent try — it returns {}
-    if it finds nothing to change, which is safe. The cost of a false-positive here
-    (treating a field-fill as conversational) is the user's data silently not being
-    saved, which is much worse than an extra LLM call.
+    Returns True if the message is a question, QA instruction, explanation request,
+    summary request, or general assistance prompt (not a direct field assignment/correction).
     """
+    import re as _re
     cleaned = (text or "").strip().lower()
 
-    # ---- Hard field-data signals: these are NEVER conversational ----
-    # Any message containing a number+unit, a date pattern, or an explicit field
-    # assignment phrase must go through the correction agent.
-    import re as _re
-    field_data_patterns = [
-        r'\d{4}[/-]\d{1,2}[/-]\d{1,2}',          # 2025/2/25, 2025-02-25
-        r'\d{1,2}[/-]\d{4}',                        # 02/2025
-        r'\b\d+\s*(mg|ml|tablets?|capsules?|vials?|bottles?|units?|pcs|packs?)\b',  # 500mg, 48 capsules
-        r'\b(batch|lot|exp|mfg|manufacturing|expiry|expiration)\b',
-        r'\b(customer|reporter|product|strength|quantity|qty|source|category|description|site|block|npm)\s+(is|:)',
-        r'\bis\s+(pharmacy|email|portal|phone|paper|quality|adverse|counterfeit)\b',  # source/category values
+    # ---- 1. Check for explicit field assignment / update commands first ----
+    # If the user says "change batch to X", "batch is Y", "set product to Z", this is a field update.
+    update_patterns = [
+        r'\b(change|set|update|correct|make|edit|replace)\s+(the\s+)?(batch|lot|product|strength|quantity|qty|expiry|exp|mfg|category|severity|customer|site|contact)\s+(to|as|=)\s+',
+        r'\b(batch|lot|customer|product|strength|quantity|qty|category|severity|site|block|npm)\s*(is|:|=)\s*[a-zA-Z0-9]',
+        r'^\s*[a-zA-Z0-9_\-]+\s*(:|=>|=)\s*[a-zA-Z0-9]',  # key: value
     ]
-    for pat in field_data_patterns:
+    for pat in update_patterns:
         if _re.search(pat, cleaned, _re.IGNORECASE):
             return False
 
-    # ---- Explicit question / acknowledgement patterns (clearly conversational) ----
+    # ---- 2. Explicit question, guidance, instruction, or explanation signals ----
     conversational_patterns = [
         "what", "which", "where", "who", "how", "why", "when",
-        "what's missing", "what is missing", "what do you need",
-        "what else", "anything else", "is that all", "are we done",
+        "what's", "whats", "what is", "which is", "where is",
+        "suggest", "explain", "summarize", "summary", "tell me",
+        "can you", "could you", "would you", "please tell", "please explain", "please suggest",
+        "check", "is this", "are there", "do we have", "how to", "how do", "how should",
+        "what fields", "which fields", "missing fields", "what's missing", "what is missing",
+        "anything else", "is that all", "are we done",
         "looks good", "ok", "okay", "thanks", "thank you", "got it",
-        "noted", "understood", "great", "perfect",
-        "can you", "could you", "please tell", "please show",
-        "what fields", "which fields", "missing fields",
-        "sure", "alright", "all right", "yep", "yup", "yes", "no",
+        "noted", "understood", "great", "perfect", "sure", "alright",
+        "help me", "guide me", "advice", "recommend", "recommendation",
     ]
-    if any(cleaned == p or cleaned.startswith(p + " ") for p in conversational_patterns):
+    if any(cleaned == p or cleaned.startswith(p + " ") or cleaned.startswith(p + "?") or f" {p} " in f" {cleaned} " for p in conversational_patterns):
         return True
 
-    # ---- Very short messages with NO recognisable field keywords ----
+    # If the text ends with a question mark, it's definitely a question
+    if cleaned.endswith("?"):
+        return True
+
+    # Short message with no assignment
     field_keywords = {
         "batch", "lot", "tablet", "capsule", "vial", "mg", "ml", "quantity",
         "qty", "expiry", "exp", "manufacturing", "mfg", "strength", "product",
         "customer", "reporter", "source", "category", "description", "contact",
         "site", "block", "npm", "amox", "metop", "pharma", "pharmacy",
     }
-    if len(cleaned) < 6 and not any(kw in cleaned for kw in field_keywords):
+    if len(cleaned) < 15 and not any(kw in cleaned for kw in field_keywords):
         return True
 
     return False
+
+
+
+def _format_form_snapshot(complaint: Optional["Complaint"], current_form: Optional[Dict[str, Any]]) -> str:
+    """Combines complaint model and live frontend form fields into a unified summary string."""
+    fields = {}
+    if complaint:
+        fields = _complaint_to_dict(complaint)
+    if current_form and isinstance(current_form, dict):
+        for k, v in current_form.items():
+            if v is not None and str(v).strip() != "":
+                fields[k] = v
+
+    if not fields:
+        return "No fields filled yet."
+
+    lines = []
+    labels = [
+        ("complaint_number", "Complaint #"),
+        ("product_name", "Product"),
+        ("product_strength", "Strength"),
+        ("batch_no", "Batch #"),
+        ("affected_quantity", "Quantity"),
+        ("customer_name", "Customer / Reporter"),
+        ("complainant_contact", "Contact"),
+        ("manufacturing_date", "Mfg Date"),
+        ("expiry_date", "Exp Date"),
+        ("originating_site_block", "Site Block"),
+        ("impacted_npm", "Material Code / NPM"),
+        ("complaint_category", "Category"),
+        ("severity", "Severity"),
+        ("complaint_description", "Defect Description"),
+        ("suggested_next_action", "Next Action"),
+        ("initial_risk_assessment", "Risk Assessment"),
+    ]
+    for key, label in labels:
+        val = fields.get(key)
+        if val:
+            lines.append(f"- {label}: {val}")
+
+    return "\n".join(lines) if lines else "No fields filled yet."
 
 
 async def _generate_conversational_reply(
     complaint: "Complaint",
     user_message: str,
     chat_history: list,
+    current_form: Optional[Dict[str, Any]] = None,
 ) -> str:
     """
-    Calls Llama 3.3 to generate a natural, context-aware conversational reply
-    for messages that are questions or acknowledgements (not field corrections).
+    Calls Llama 3.3 to generate an intelligent, context-aware conversational reply
+    for user queries, instructions, summaries, regulatory questions, and form checks.
 
-    Includes current complaint state + missing fields + chat history so the
-    LLM can give a meaningful, guided response.
+    Includes current complaint state + live manual form edits + missing fields + chat history.
     """
     missing_prompt = _get_missing_fields_prompt(complaint)
-    existing_fields_summary = (
-        f"Complaint: {complaint.complaint_number}\n"
-        f"Product: {complaint.product_name} | Batch: {complaint.batch_no} | "
-        f"Severity: {complaint.severity}\n"
-        f"Customer: {complaint.customer_name} | Category: {complaint.complaint_category}"
-    )
+    form_summary = _format_form_snapshot(complaint, current_form)
 
     history_text = ""
     if chat_history:
@@ -756,27 +869,29 @@ async def _generate_conversational_reply(
         history_text = "\nConversation so far:\n" + "\n".join(lines) + "\n"
 
     system = (
-        "You are an AI Copilot for a Pharmaceutical QMS complaint intake system. "
-        "You help QA staff fill in complaint forms by extracting data from messages and guiding them on missing fields. "
-        "Be concise, professional, and helpful. Always guide the user toward providing any missing information."
+        "You are CUSTOMER AI-Copilot, an expert Pharmaceutical Quality Management System (QMS) "
+        "and QA Compliance Assistant. You have full, real-time visibility into the complaint intake form "
+        "and any manual edits the user made on their screen.\n\n"
+        "YOUR CAPABILITIES:\n"
+        "1. Direct Form Context: If the user asks about the form (e.g. 'what is my batch?', 'what fields are missing?', 'check this form'), reference the live form values provided below.\n"
+        "2. General QA & Regulatory Guidance: You can answer questions about GMP, ICH Q10, FDA 21 CFR 211.198, CAPA, root cause analysis, defect classifications (Critical vs Major vs Minor), adverse event reporting, and retention samples.\n"
+        "3. Drafting & Analysis: You can summarize the complaint, rewrite descriptions into formal QA phrasing, suggest root causes, or recommend next actions.\n"
+        "4. Tone: Helpful, knowledgeable, precise, and professional. Keep replies clear and concise (2-4 sentences unless detailed analysis is asked). Do NOT output JSON."
     )
 
     prompt = (
-        f"Current complaint status:\n{existing_fields_summary}\n"
+        f"LIVE FORM STATE & MANUAL EDITS:\n{form_summary}\n\n"
+        f"MISSING FIELDS STATUS: {missing_prompt}\n"
         f"{history_text}"
-        f"\nUser's message: \"{user_message}\"\n"
-        f"\nMissing fields status: {missing_prompt}\n\n"
-        f"Respond naturally and helpfully in 1-3 sentences. "
-        f"If fields are missing, guide the user to provide them. "
-        f"Do NOT output JSON. Output plain conversational text only."
+        f"\nUSER REQUEST / MESSAGE: \"{user_message}\"\n\n"
+        f"Provide a helpful, direct response to the user's request."
     )
 
     try:
-        reply = await acall_llama(prompt=prompt, system=system, temperature=0.3, max_tokens=300)
-        return reply.strip() or "I'm here to help! Please provide any missing details for the complaint form."
+        reply = await acall_llama(prompt=prompt, system=system, temperature=0.3, max_tokens=400)
+        return reply.strip() or "I'm reviewing your complaint details. Let me know if you need to update any fields or submit to QMS."
     except Exception as exc:
         logger.warning("_generate_conversational_reply LLM error: %s", exc)
-        # Fallback: return the missing fields prompt directly
         base = f"I'm reviewing complaint {complaint.complaint_number}."
         return base + missing_prompt
 
@@ -858,7 +973,7 @@ def _has_complaint_substance(text: str) -> bool:
         # Quantity + unit
         bool(_re.search(r'\b\d+\s*(mg|ml|mcg|iu|tablets?|capsules?|vials?|bottles?|strips?|packs?|units?)\b', cleaned, _re.IGNORECASE)),
         # Customer / reporter entity
-        bool(_re.search(r'\b(pharmacy|hospital|clinic|patient|doctor|customer|reporter|reporter|dispensary)\b.*\b(complain|report|issue|problem|found|noticed|received)\b', cleaned, _re.IGNORECASE)),
+        bool(_re.search(r'\b(pharmacy|hospital|clinic|patient|doctor|customer|reporter|dispensary)\b.*\b(complain|report|issue|problem|found|noticed|received)\b', cleaned, _re.IGNORECASE)),
         # Multi-line or long structured text (email / formal complaint)
         len(cleaned) > 120 and '\n' in cleaned,
     ]
@@ -868,21 +983,26 @@ def _has_complaint_substance(text: str) -> bool:
     return count >= 2 or (count >= 1 and len(cleaned) > 60)
 
 
-async def _generate_initial_reply(user_message: str, chat_history: list) -> str:
+async def _generate_initial_reply(
+    user_message: str,
+    chat_history: list,
+    current_form: Optional[Dict[str, Any]] = None,
+) -> str:
     """
-    Generates a warm, natural conversational reply for messages that don't
-    yet contain complaint data — casual openers, questions, etc.
+    Generates an intelligent, conversational reply for messages that don't
+    yet trigger full complaint logging — casual openers, questions, QMS inquiries,
+    or queries referring to manual form entries.
+    """
+    form_summary = _format_form_snapshot(None, current_form)
 
-    Always guides the user toward sharing complaint details.
-    """
     system = (
-        "You are CUSTOMER AI-Copilot, an intelligent assistant for a Pharmaceutical Quality "
-        "Management System (QMS) complaint intake portal. "
-        "Your job is to help QA staff log customer complaints by collecting product, batch, "
-        "and defect information through natural conversation.\n\n"
-        "TONE: Warm, professional, and concise. Max 2-3 sentences.\n"
-        "GOAL: Always guide the user toward providing the complaint details so you can fill the form for them.\n"
-        "DO NOT output JSON. Plain conversational text only."
+        "You are CUSTOMER AI-Copilot, an intelligent Pharmaceutical Quality Management System (QMS) "
+        "and QA Compliance Assistant. You help QA staff log customer complaints and answer quality compliance questions.\n\n"
+        "CAPABILITIES:\n"
+        "1. If the user asks about the form or has manually typed details on screen, acknowledge those fields using the Live Form State provided below.\n"
+        "2. If the user asks general QA, GMP, CAPA, or regulatory questions, answer them accurately and professionally.\n"
+        "3. If the user wants to log a new complaint, invite them to share the product name, batch number, customer, and issue description.\n"
+        "4. Tone: Warm, professional, concise, and helpful (2-3 sentences). Plain text only, no JSON."
     )
 
     history_text = ""
@@ -894,26 +1014,24 @@ async def _generate_initial_reply(user_message: str, chat_history: list) -> str:
         history_text = "Conversation so far:\n" + "\n".join(lines) + "\n\n"
 
     prompt = (
+        f"LIVE FORM STATE ON SCREEN:\n{form_summary}\n\n"
         f"{history_text}"
-        f"User's message: \"{user_message}\"\n\n"
-        "Reply naturally. If the user wants to fill a complaint form or log an issue, "
-        "ask them to share: the product name, batch/lot number, and description of the defect. "
-        "If they asked a general question, answer it briefly then guide them to the complaint. "
-        "If they just said hi or hello, introduce yourself warmly."
+        f"USER MESSAGE: \"{user_message}\"\n\n"
+        "Reply helpfully and concisely to the user."
     )
 
     try:
-        reply = await acall_llama(prompt=prompt, system=system, temperature=0.4, max_tokens=200)
+        reply = await acall_llama(prompt=prompt, system=system, temperature=0.3, max_tokens=300)
         return reply.strip() or (
             "Hello! I'm your AI Copilot for complaint intake. "
-            "Please share the product name, batch number, and what the issue is — I'll fill the form for you!"
+            "Please share the product name, batch number, and defect description — I'll extract everything and fill the form for you!"
         )
     except Exception as exc:
         logger.warning("_generate_initial_reply LLM error: %s", exc)
         return (
             "Hello! I'm here to help you log a quality complaint. "
             "Please share the product name, batch/lot number, and describe the defect — "
-            "I'll extract all the details and fill the form automatically."
+            "I'll extract all details and populate the form automatically."
         )
 
 

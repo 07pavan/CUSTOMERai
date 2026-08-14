@@ -22,6 +22,10 @@ class CopilotMessageRequest(BaseModel):
         default=None,
         description="Last N turns of conversation for context. Each item has 'role' ('user'|'assistant') and 'content'.",
     )
+    current_form_fields: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Current live values from the customer complaint form (including manual edits)",
+    )
 
 
 class CopilotNewComplaintResponse(BaseModel):

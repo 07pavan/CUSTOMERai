@@ -10,7 +10,7 @@ import {
   setComplaintId,
   setLoading,
 } from '../copilot/copilotSlice';
-import { patchCorrectionDiff, populateFromAi, resetForm } from './complaintFormSlice';
+import { patchCorrectionDiff, populateFromAi, resetForm, selectFormValues } from './complaintFormSlice';
 import {
   useSendCopilotMessageMutation,
   useUploadCopilotDocumentMutation,
@@ -94,6 +94,7 @@ export default function AICopilotPanel({ showToast, onSubmitRequest }) {
   const sessionId = useAppSelector(selectCopilotSessionId);
   const complaintId = useAppSelector(selectCopilotComplaintId);
   const isLoading = useAppSelector(selectCopilotIsLoading);
+  const formValues = useAppSelector(selectFormValues);
 
   const [inputMessage, setInputMessage] = useState('');
   const [canSubmit, setCanSubmit] = useState(false);
@@ -143,7 +144,19 @@ export default function AICopilotPanel({ showToast, onSubmitRequest }) {
 
   /* ─── Process API response (shared between text + file) ─── */
   const processResponse = useCallback((res) => {
-    dispatch(addMessage({ sender: 'assistant', text: res.reply_text }));
+    if (!res) return;
+
+    if (res.reply_text) {
+      dispatch(addMessage({ sender: 'assistant', text: res.reply_text }));
+    }
+
+    // Clear intent action from backend
+    if (res.action === 'clear') {
+      dispatch(resetForm());
+      dispatch(resetChat());
+      setCanSubmit(false);
+      return;
+    }
 
     // New complaint created (has extracted_fields) — populate the whole form
     if (res.extracted_fields && Object.keys(res.extracted_fields).length > 0) {
@@ -197,6 +210,7 @@ export default function AICopilotPanel({ showToast, onSubmitRequest }) {
         message: text,
         complaint_id: complaintId,
         chat_history: historySnapshot,
+        current_form_fields: formValues,
       }).unwrap();
 
       processResponse(res);
@@ -223,6 +237,7 @@ export default function AICopilotPanel({ showToast, onSubmitRequest }) {
         message: text,
         complaint_id: complaintId,
         chat_history: [],
+        current_form_fields: formValues,
       }).unwrap();
 
       processResponse(res);
