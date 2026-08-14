@@ -70,8 +70,10 @@ import client from './client';
  */
 const axiosBaseQuery =
   () =>
-  async ({ url, method = 'GET', data, params, headers, signal }) => {
+  async (args) => {
     try {
+      const config = typeof args === 'string' ? { url: args, method: 'GET' } : args;
+      const { url, method = 'GET', data, params, headers, signal } = config;
       const response = await client.request({ url, method, data, params, headers, signal });
       return { data: response.data };
     } catch (error) {
@@ -237,7 +239,10 @@ export const complaintsApi = createApi({
     // fetchAnalyticsSummary — GET /api/v1/analytics/summary             //
     // ------------------------------------------------------------------ //
     fetchAnalyticsSummary: builder.query({
-      query: (days = 30) => `/api/v1/analytics/summary?days=${days}`,
+      query: (days = 30) => ({
+        url: '/api/v1/analytics/summary',
+        params: { days },
+      }),
       providesTags: ['ComplaintList'],
     }),
 

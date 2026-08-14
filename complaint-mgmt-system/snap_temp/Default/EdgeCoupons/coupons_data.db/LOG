@@ -1,0 +1,5 @@
+2026/08/14-12:10:46.081 6c10 Creating DB F:\customerAI\complaint-mgmt-system\snap_temp\Default\EdgeCoupons/coupons_data.db since it was missing.
+2026/08/14-12:10:46.147 6c10 Reusing MANIFEST F:\customerAI\complaint-mgmt-system\snap_temp\Default\EdgeCoupons/coupons_data.db/MANIFEST-000001
+2026/08/14-12:10:48.514 79e4 Level-0 table #5: started
+2026/08/14-12:10:48.530 79e4 Level-0 table #5: 683273 bytes OK
+2026/08/14-12:10:48.537 79e4 Delete type=0 #3
