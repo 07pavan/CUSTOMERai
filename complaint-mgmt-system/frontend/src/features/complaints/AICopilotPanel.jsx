@@ -386,64 +386,6 @@ export default function AICopilotPanel({ showToast, onSubmitRequest }) {
         </div>
       )}
 
-      {/* ─── Dynamic Quick Action Chips ─── */}
-      <div className={styles.chipsBar}>
-        <button
-          type="button"
-          className={styles.chipBtn}
-          onClick={() => {
-            setInputMessage("What fields are still missing on this form?");
-            inputRef.current?.focus();
-          }}
-          disabled={isLoading}
-        >
-          ⚡ Check Missing
-        </button>
-        <button
-          type="button"
-          className={styles.chipBtn}
-          onClick={() => {
-            setInputMessage("Suggest standard CAPA actions for this defect");
-            inputRef.current?.focus();
-          }}
-          disabled={isLoading}
-        >
-          📋 Suggest CAPA
-        </button>
-        <button
-          type="button"
-          className={styles.chipBtn}
-          onClick={() => {
-            setInputMessage("Suggest root cause hypotheses for this issue");
-            inputRef.current?.focus();
-          }}
-          disabled={isLoading}
-        >
-          🔬 Root Cause
-        </button>
-        <button
-          type="button"
-          className={styles.chipBtn}
-          onClick={() => {
-            setInputMessage("Summarize this complaint for QA review");
-            inputRef.current?.focus();
-          }}
-          disabled={isLoading}
-        >
-          📊 Summarize
-        </button>
-        <button
-          type="button"
-          className={`${styles.chipBtn} ${styles.chipClear}`}
-          onClick={() => {
-            setInputMessage("clear the form");
-            inputRef.current?.focus();
-          }}
-          disabled={isLoading}
-        >
-          🗑️ Clear Form
-        </button>
-      </div>
 
       {/* ─── Input Form ─── */}
       <form className={styles.inputForm} onSubmit={handleSendMessage}>
