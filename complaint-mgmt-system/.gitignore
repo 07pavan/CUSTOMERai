@@ -32,3 +32,5 @@ npm-debug.log*
 .pytest_cache/
 coverage/
 .nyc_output/
+browser_data_temp/
+*.png

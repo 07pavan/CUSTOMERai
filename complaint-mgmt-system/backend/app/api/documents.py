@@ -147,7 +147,6 @@ def _detect_file_type(content_type: str, filename: str) -> str:
         413: {"description": "File exceeds 25 MB limit."},
         415: {"description": "Unsupported file type."},
     },
-    dependencies=[Depends(require_admin)],
 )
 async def upload_document(
     complaint_id: int,

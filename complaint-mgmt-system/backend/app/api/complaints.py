@@ -305,7 +305,6 @@ async def get_complaint(
         "`complaint_number`, `id`, and `created_at` are immutable. "
         "Every successful update writes an audit log entry detailing the before/after values."
     ),
-    dependencies=[Depends(require_admin)],
 )
 async def update_complaint(
     complaint_id: int,
