@@ -46,8 +46,8 @@ export default function Navbar({ activeView, role, onNavigate, onRoleChange }) {
         >
           <div className={styles.brandIcon}><ShieldIcon /></div>
           <div>
-            <div className={styles.brandName}>ComplaintQMS</div>
-            <div className={styles.brandSub}>Pharmaceutical</div>
+            <div className={styles.brandName}>CustomerHelperAI</div>
+            <div className={styles.brandSub}>Pharmaceutical QMS</div>
           </div>
         </div>
 

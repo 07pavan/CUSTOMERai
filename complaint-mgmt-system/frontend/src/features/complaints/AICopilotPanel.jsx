@@ -10,6 +10,7 @@ import {
   setComplaintId,
   setLoading,
 } from '../copilot/copilotSlice';
+import RobotAvatar from '../copilot/RobotAvatar';
 import { patchCorrectionDiff, populateFromAi, resetForm, selectFormValues } from './complaintFormSlice';
 import {
   useSendCopilotMessageMutation,
@@ -18,12 +19,6 @@ import {
 import styles from './AICopilotPanel.module.css';
 
 /* ─── Icons ─── */
-const SparklesIcon = () => (
-  <svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16">
-    <path d="M7.5 0a.5.5 0 0 1 .5.5v3a.5.5 0 0 1-1 0v-3a.5.5 0 0 1 .5-.5zm0 11a.5.5 0 0 1 .5.5v3a.5.5 0 0 1-1 0v-3a.5.5 0 0 1 .5-.5zm6-5.5a.5.5 0 0 1 0 1h-3a.5.5 0 0 1 0-1h3zm-11 0a.5.5 0 0 1 0 1h-3a.5.5 0 0 1 0-1h3zm10.243-3.757a.5.5 0 0 1 0 .707l-2.121 2.122a.5.5 0 1 1-.707-.707l2.121-2.122a.5.5 0 0 1 .707 0zm-8.485 8.485a.5.5 0 0 1 0 .707l-2.122 2.121a.5.5 0 1 1-.707-.707l2.122-2.121a.5.5 0 0 1 .707 0zm8.485 0a.5.5 0 0 1 .707 0l2.121 2.121a.5.5 0 0 1-.707.707l-2.121-2.121a.5.5 0 0 1 0-.707zm-8.485-8.485a.5.5 0 0 1 .707 0l2.122 2.121a.5.5 0 0 1-.707.707l-2.122-2.121a.5.5 0 0 1 0-.707z" />
-  </svg>
-);
-
 const PaperclipIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
     <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
@@ -292,12 +287,19 @@ export default function AICopilotPanel({ showToast, onSubmitRequest }) {
       {/* ─── Header ─── */}
       <div className={styles.header}>
         <div className={styles.titleGroup}>
-          <div className={styles.copilotIcon}>
-            <SparklesIcon />
-          </div>
+          <RobotAvatar
+            size="md"
+            state={isLoading ? 'thinking' : 'idle'}
+            interactive={true}
+          />
           <div>
-            <h3 className={styles.title}>AIVOA Copilot</h3>
-            <p className={styles.subtitle}>AI-powered QMS complaint assistant</p>
+            <div className={styles.titleRow}>
+              <h3 className={styles.title}>CustomerHelperAI</h3>
+              <span className={styles.onlineBadge}>● Online</span>
+            </div>
+            <p className={styles.subtitle}>
+              {isLoading ? '🤖 AI is analyzing & thinking...' : 'Interactive Pharmaceutical QMS Copilot'}
+            </p>
           </div>
         </div>
         <button
@@ -319,13 +321,13 @@ export default function AICopilotPanel({ showToast, onSubmitRequest }) {
               msg.sender === 'user' ? styles.userBubble : styles.assistantBubble
             }`}
           >
-            <div
-              className={`${styles.avatar} ${
-                msg.sender === 'user' ? styles.userAvatar : styles.assistantAvatar
-              }`}
-            >
-              {msg.sender === 'user' ? 'U' : 'AI'}
-            </div>
+            {msg.sender === 'assistant' ? (
+              <RobotAvatar size="sm" state="talking" interactive={false} />
+            ) : (
+              <div className={`${styles.avatar} ${styles.userAvatar}`}>
+                US
+              </div>
+            )}
             <div
               className={`${styles.bubbleContent} ${
                 msg.sender === 'user' ? styles.userContent : styles.assistantContent
@@ -349,8 +351,15 @@ export default function AICopilotPanel({ showToast, onSubmitRequest }) {
 
         {isLoading && (
           <div className={`${styles.messageBubble} ${styles.assistantBubble}`}>
-            <div className={`${styles.avatar} ${styles.assistantAvatar}`}>AI</div>
-            <div className={`${styles.bubbleContent} ${styles.assistantContent}`}>
+            <RobotAvatar size="sm" state="thinking" interactive={false} />
+            <div className={`${styles.bubbleContent} ${styles.assistantContent} ${styles.thinkingBox}`}>
+              <div className={styles.thinkingHeader}>
+                <span className={styles.thinkingTitle}>CustomerHelperAI is thinking...</span>
+                <span className={styles.thinkingPulseDot} />
+              </div>
+              <div className={styles.thinkingSubText}>
+                Analyzing batch details, risk criteria &amp; QMS compliance rules
+              </div>
               <div className={styles.typing}>
                 <div className={styles.dot} />
                 <div className={styles.dot} />
@@ -360,6 +369,7 @@ export default function AICopilotPanel({ showToast, onSubmitRequest }) {
           </div>
         )}
       </div>
+
 
       {/* ─── Commit Quick-Action Bar (shown when form is complete) ─── */}
       {canSubmit && !isLoading && (
