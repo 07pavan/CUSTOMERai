@@ -56,7 +56,7 @@ const TABS = ['Details', 'Documents', 'AI Assessment', 'Audit Log'];
  * ComplaintDetail — full complaint view with tabbed sections and inline status update.
  * @param {{ complaintId: number, onBack: Function, showToast: Function }} props
  */
-export default function ComplaintDetail({ complaintId, onBack, showToast }) {
+export default function ComplaintDetail({ complaintId, role = 'admin', onBack, showToast }) {
   const [activeTab, setActiveTab] = useState('Details');
   const [newStatus, setNewStatus] = useState('');
   const [newSeverity, setNewSeverity] = useState('');
@@ -135,46 +135,53 @@ export default function ComplaintDetail({ complaintId, onBack, showToast }) {
           </div>
         </div>
 
-        {/* Inline update bar */}
-        <div className={styles.updateForm}>
-          <div className={styles.updateField}>
-            <label className={styles.updateLabel} htmlFor="update-status">Update Status</label>
-            <select id="update-status" className={styles.updateSelect} value={newStatus} onChange={e => setNewStatus(e.target.value)}>
-              <option value="">— Current: {complaint.status.replace(/_/g, ' ')} —</option>
-              <option value="new">New</option>
-              <option value="under_investigation">Under Investigation</option>
-              <option value="capa_assigned">CAPA Assigned</option>
-              <option value="closed">Closed</option>
-            </select>
-          </div>
-          <div className={styles.updateField}>
-            <label className={styles.updateLabel} htmlFor="update-severity">Override Severity</label>
-            <select id="update-severity" className={styles.updateSelect} value={newSeverity} onChange={e => setNewSeverity(e.target.value)}>
-              <option value="">— Current: {complaint.severity ?? 'Pending AI'} —</option>
-              <option value="critical">Critical</option>
-              <option value="major">Major</option>
-              <option value="minor">Minor</option>
-            </select>
-          </div>
-          <button
-            className={styles.btnSave}
-            onClick={handleUpdate}
-            disabled={isUpdating || isAssessing || (!newStatus && !newSeverity)}
-          >
-            {isUpdating ? 'Saving…' : 'Save Changes'}
-          </button>
+        {/* Inline update bar — Admin only */}
+        {role === 'admin' ? (
+          <div className={styles.updateForm}>
+            <div className={styles.updateField}>
+              <label className={styles.updateLabel} htmlFor="update-status">Update Status</label>
+              <select id="update-status" className={styles.updateSelect} value={newStatus} onChange={e => setNewStatus(e.target.value)}>
+                <option value="">— Current: {complaint.status.replace(/_/g, ' ')} —</option>
+                <option value="new">New</option>
+                <option value="under_investigation">Under Investigation</option>
+                <option value="capa_assigned">CAPA Assigned</option>
+                <option value="closed">Closed</option>
+              </select>
+            </div>
+            <div className={styles.updateField}>
+              <label className={styles.updateLabel} htmlFor="update-severity">Override Severity</label>
+              <select id="update-severity" className={styles.updateSelect} value={newSeverity} onChange={e => setNewSeverity(e.target.value)}>
+                <option value="">— Current: {complaint.severity ?? 'Pending AI'} —</option>
+                <option value="critical">Critical</option>
+                <option value="major">Major</option>
+                <option value="minor">Minor</option>
+              </select>
+            </div>
+            <button
+              className={styles.btnSave}
+              onClick={handleUpdate}
+              disabled={isUpdating || isAssessing || (!newStatus && !newSeverity)}
+            >
+              {isUpdating ? 'Saving…' : 'Save Changes'}
+            </button>
 
-          <button
-            type="button"
-            className={styles.btnSave}
-            style={{ background: 'hsl(270, 70%, 55%)', marginLeft: 'auto' }}
-            onClick={handleAssess}
-            disabled={isAssessing || isUpdating}
-            id="run-ai-triage-btn"
-          >
-            {isAssessing ? 'Running Agent Pipeline…' : <><SparklesIcon /> Run AI Triage</>}
-          </button>
-        </div>
+            <button
+              type="button"
+              className={styles.btnSave}
+              style={{ background: 'hsl(270, 70%, 55%)', marginLeft: 'auto' }}
+              onClick={handleAssess}
+              disabled={isAssessing || isUpdating}
+              id="run-ai-triage-btn"
+            >
+              {isAssessing ? 'Running Agent Pipeline…' : <><SparklesIcon /> Run AI Triage</>}
+            </button>
+          </div>
+        ) : (
+          <div style={{ padding: '0.75rem 1rem', background: 'hsl(220,20%,96%)', borderRadius: '0.5rem', border: '1px solid hsl(220,15%,88%)', color: 'hsl(220,12%,52%)', fontSize: '0.8125rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>
+            Status updates and AI Triage are restricted to Admin users.
+          </div>
+        )}
       </div>
 
       {/* ── Tabs ── */}

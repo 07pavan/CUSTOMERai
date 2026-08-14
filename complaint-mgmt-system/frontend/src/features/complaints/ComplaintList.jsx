@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../../app/hooks';
 import {
   selectFilters,
@@ -8,7 +9,7 @@ import {
   clearFilters,
   setPage,
 } from './complaintsSlice';
-import { useFetchComplaintsQuery } from '../../api/complaintsApi';
+import { useFetchComplaintsQuery, useUpdateComplaintMutation } from '../../api/complaintsApi';
 import styles from './ComplaintList.module.css';
 
 /* ─── Helpers ─── */
@@ -49,6 +50,13 @@ const SEVERITY_STYLE = {
   minor:    styles.severityMinor,
 };
 
+const STATUS_OPTIONS = [
+  { value: 'new',                 label: 'New' },
+  { value: 'under_investigation', label: 'Under Investigation' },
+  { value: 'capa_assigned',       label: 'CAPA Assigned' },
+  { value: 'closed',              label: 'Closed' },
+];
+
 function StatusBadge({ status }) {
   return (
     <span className={`${styles.badge} ${STATUS_STYLE[status] ?? styles.severityPending}`}>
@@ -81,19 +89,52 @@ function formatDate(iso) {
 }
 
 /* ─── Skeleton row ─── */
-function SkeletonRow() {
+function SkeletonRow({ isAdmin }) {
+  const cols = isAdmin ? 9 : 8;
   return (
     <tr>
-      {[80, 160, 120, 90, 80, 80, 70, 60].map((w, i) => (
+      {Array.from({ length: cols }, (_, i) => (
         <td key={i}>
-          <span className={styles.skeleton} style={{ width: w, height: 14, display: 'inline-block' }} />
+          <span className={styles.skeleton} style={{ width: [80, 160, 120, 90, 110, 80, 80, 70, 60][i], height: 14, display: 'inline-block' }} />
         </td>
       ))}
     </tr>
   );
 }
 
-/* ─── Arrow icon ─── */
+/* ─── Inline Status Changer (admin only) ─── */
+function InlineStatusSelect({ complaint, onStatusChange, isUpdating }) {
+
+  const handleChange = (e) => {
+    e.stopPropagation();
+    const newStatus = e.target.value;
+    if (newStatus && newStatus !== complaint.status) {
+      onStatusChange(complaint.id, newStatus);
+    }
+  };
+
+  return (
+    <div className={styles.inlineStatusWrap} onClick={(e) => e.stopPropagation()}>
+      {isUpdating ? (
+        <span className={styles.updatingSpinner} title="Saving…" />
+      ) : (
+        <select
+          className={`${styles.inlineStatusSelect} ${STATUS_STYLE[complaint.status] ? styles[`inlineStatus_${complaint.status}`] : ''}`}
+          value={complaint.status}
+          onChange={handleChange}
+          aria-label={`Change status of ${complaint.complaint_number}`}
+          title="Change status"
+        >
+          {STATUS_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+      )}
+    </div>
+  );
+}
+
+/* ─── Icons ─── */
 const ArrowRight = () => (
   <svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12">
     <path fillRule="evenodd" d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06z"/>
@@ -114,18 +155,38 @@ const EmptyIcon = () => (
 
 /**
  * ComplaintList — paginated, filterable table of complaints.
- * @param {{ onViewComplaint: (id: number) => void }} props
+ * Admins get an inline status changer on each row.
+ * @param {{ onViewComplaint: (id: number) => void, isAdmin?: boolean }} props
  */
-export default function ComplaintList({ onViewComplaint }) {
+export default function ComplaintList({ onViewComplaint, isAdmin = true }) {
   const dispatch = useAppDispatch();
   const filters = useAppSelector(selectFilters);
   const pagination = useAppSelector(selectPagination);
   const queryArgs = useAppSelector(selectComplaintsQueryArgs);
 
   const { data, isLoading, isFetching, isError } = useFetchComplaintsQuery(queryArgs);
+  const [updateComplaint] = useUpdateComplaintMutation();
+
+  // Track which complaint IDs are currently being updated inline
+  const [updatingIds, setUpdatingIds] = useState(new Set());
 
   const hasFilters = filters.status || filters.category;
   const totalPages = data ? Math.ceil(data.total / pagination.pageSize) : 0;
+
+  const handleInlineStatusChange = async (id, newStatus) => {
+    setUpdatingIds((prev) => new Set(prev).add(id));
+    try {
+      await updateComplaint({ id, status: newStatus }).unwrap();
+    } catch {
+      // silently ignore — detail view toast handles errors
+    } finally {
+      setUpdatingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
+  };
 
   return (
     <div className={styles.page}>
@@ -207,6 +268,8 @@ export default function ComplaintList({ onViewComplaint }) {
                     <th>Complainant</th>
                     <th>Category</th>
                     <th>Status</th>
+                    {/* Admin gets an extra column for inline status change */}
+                    {isAdmin && <th className={styles.thStatus}>Change Status</th>}
                     <th>Severity</th>
                     <th>Submitted</th>
                     <th></th>
@@ -214,10 +277,10 @@ export default function ComplaintList({ onViewComplaint }) {
                 </thead>
                 <tbody>
                   {isLoading ? (
-                    Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)
+                    Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} isAdmin={isAdmin} />)
                   ) : data?.items.length === 0 ? (
                     <tr>
-                      <td colSpan={8}>
+                      <td colSpan={isAdmin ? 9 : 8}>
                         <div className={styles.empty}>
                           <EmptyIcon />
                           <p className={styles.emptyTitle}>
@@ -257,6 +320,18 @@ export default function ComplaintList({ onViewComplaint }) {
                         </td>
                         <td>{CATEGORY_LABELS[c.complaint_category || c.category] ?? c.complaint_category ?? c.category ?? '—'}</td>
                         <td><StatusBadge status={c.status} /></td>
+
+                        {/* Inline status change — Admin only */}
+                        {isAdmin && (
+                          <td onClick={(e) => e.stopPropagation()}>
+                            <InlineStatusSelect
+                              complaint={c}
+                              onStatusChange={handleInlineStatusChange}
+                              isUpdating={updatingIds.has(c.id)}
+                            />
+                          </td>
+                        )}
+
                         <td><SeverityBadge severity={c.severity || c.risk_level} /></td>
                         <td><span className={styles.date}>{formatDate(c.created_at)}</span></td>
                         <td>

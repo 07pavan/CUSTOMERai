@@ -44,7 +44,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_actor, get_complaint_or_404
+from app.api.deps import get_actor, get_complaint_or_404, require_admin
 from app.core.audit import write_audit_log
 from app.core.extraction import extract_text
 from app.core.storage import UPLOAD_ROOT, save_upload
@@ -147,6 +147,7 @@ def _detect_file_type(content_type: str, filename: str) -> str:
         413: {"description": "File exceeds 25 MB limit."},
         415: {"description": "Unsupported file type."},
     },
+    dependencies=[Depends(require_admin)],
 )
 async def upload_document(
     complaint_id: int,

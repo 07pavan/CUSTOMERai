@@ -37,7 +37,9 @@ const client = axios.create({
 client.interceptors.request.use(
   (config) => {
     const actor = localStorage.getItem('actor') ?? 'anonymous';
+    const role  = localStorage.getItem('role')  ?? 'admin';
     config.headers['X-Actor'] = actor;
+    config.headers['X-Role']  = role;
 
     // If data is FormData, do NOT force application/json header
     if (config.data instanceof FormData) {

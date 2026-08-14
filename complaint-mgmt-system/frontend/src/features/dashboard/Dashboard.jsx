@@ -65,17 +65,15 @@ export default function Dashboard() {
   }
 
   const {
-    total_complaints,
-    critical_count,
-    major_count,
-    minor_count,
-    unassessed_count,
-    active_investigations,
-    severity_breakdown,
-    category_breakdown,
-    top_products,
-    trends_over_time,
-  } = analytics;
+    total_complaints = 0,
+    critical_count = 0,
+    unassessed_count = 0,
+    active_investigations = 0,
+    severity_breakdown = [],
+    category_breakdown = [],
+    top_products = [],
+    trends_over_time = [],
+  } = analytics || {};
 
   return (
     <div className={styles.page}>

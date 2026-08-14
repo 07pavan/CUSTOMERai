@@ -40,7 +40,7 @@ export default function Toast({ toast, onDismiss }) {
   useEffect(() => {
     if (!toast) return;
     setExiting(false);
-  }, [toast?.id]);
+  }, [toast]);
 
   if (!toast) return null;
 

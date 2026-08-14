@@ -42,6 +42,39 @@ def get_actor(x_actor: Annotated[str | None, Header()] = None) -> str:
     return x_actor or "anonymous"
 
 
+def get_role(x_role: Annotated[str | None, Header()] = None) -> str:
+    """
+    Resolve the acting role from the `X-Role` HTTP header.
+    Defaults to 'admin' to keep backward compatibility with existing tests
+    and curl queries that do not supply headers.
+    """
+    return x_role or "admin"
+
+
+def require_admin(role: str = Depends(get_role)) -> None:
+    """
+    Assert that the acting user has the 'admin' role.
+    Raises 403 Forbidden if the assertion fails.
+    """
+    if role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Operation restricted to Admin users."
+        )
+
+
+def require_user(role: str = Depends(get_role)) -> None:
+    """
+    Assert that the acting user is a standard user (non-admin).
+    Raises 403 Forbidden if the user is an admin.
+    """
+    if role == "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Operation restricted to Standard Users. Admins cannot log complaints."
+        )
+
+
 # ---------------------------------------------------------------------------
 # Complaint loader with 404 guard
 # ---------------------------------------------------------------------------

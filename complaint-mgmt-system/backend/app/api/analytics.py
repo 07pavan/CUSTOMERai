@@ -21,6 +21,7 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy import case, cast, Date, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import require_admin
 from app.db.session import get_db
 from app.models.complaint import Complaint
 from app.models.enums import Category, Severity, Status
@@ -54,6 +55,7 @@ CATEGORY_LABELS = {
         "(last 30, 60, or 90 days). Includes severity breakdown, category "
         "distribution, top affected products, and daily complaint volume trends."
     ),
+    dependencies=[Depends(require_admin)],
 )
 async def get_analytics_summary(
     days: int = Query(30, ge=7, le=365, description="Time window in days (default 30)."),

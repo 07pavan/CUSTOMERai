@@ -26,20 +26,22 @@ const ChartIcon = () => (
 );
 
 /**
- * @param {{ activeView: string, onNavigate: Function }} props
+ * @param {{ activeView: string, role: string, onNavigate: Function, onRoleChange: Function }} props
  */
-export default function Navbar({ activeView, onNavigate }) {
+export default function Navbar({ activeView, role, onNavigate, onRoleChange }) {
+  const isAdmin = role === 'admin';
+
   return (
     <nav className={styles.nav} role="navigation" aria-label="Main navigation">
       <div className={styles.inner}>
         {/* Brand */}
         <div
           className={styles.brand}
-          onClick={() => onNavigate('list')}
+          onClick={() => onNavigate(isAdmin ? 'list' : 'form')}
           style={{ cursor: 'pointer' }}
           role="button"
           tabIndex={0}
-          onKeyDown={(e) => e.key === 'Enter' && onNavigate('list')}
+          onKeyDown={(e) => e.key === 'Enter' && onNavigate(isAdmin ? 'list' : 'form')}
           aria-label="ComplaintQMS Logo"
         >
           <div className={styles.brandIcon}><ShieldIcon /></div>
@@ -51,41 +53,72 @@ export default function Navbar({ activeView, onNavigate }) {
 
         {/* Navigation tabs */}
         <div className={styles.tabs} role="tablist">
-          <button
-            role="tab"
-            aria-selected={activeView === 'dashboard'}
-            className={`${styles.tab} ${activeView === 'dashboard' ? styles.tabActive : ''}`}
-            onClick={() => onNavigate('dashboard')}
-            id="nav-dashboard"
-          >
-            <ChartIcon /> Dashboard
-          </button>
+          {/* Dashboard — Admin only */}
+          {isAdmin && (
+            <button
+              role="tab"
+              aria-selected={activeView === 'dashboard'}
+              className={`${styles.tab} ${activeView === 'dashboard' ? styles.tabActive : ''}`}
+              onClick={() => onNavigate('dashboard')}
+              id="nav-dashboard"
+            >
+              <ChartIcon /> Dashboard
+            </button>
+          )}
 
-          <button
-            role="tab"
-            aria-selected={activeView === 'list'}
-            className={`${styles.tab} ${activeView === 'list' || activeView === 'detail' ? styles.tabActive : ''}`}
-            onClick={() => onNavigate('list')}
-            id="nav-list"
-          >
-            <ListIcon /> Complaints
-          </button>
+          {/* Complaints list — Admin only */}
+          {isAdmin && (
+            <button
+              role="tab"
+              aria-selected={activeView === 'list'}
+              className={`${styles.tab} ${activeView === 'list' || activeView === 'detail' ? styles.tabActive : ''}`}
+              onClick={() => onNavigate('list')}
+              id="nav-list"
+            >
+              <ListIcon /> Complaints
+            </button>
+          )}
 
-          <button
-            role="tab"
-            aria-selected={activeView === 'form'}
-            className={`${styles.tab} ${activeView === 'form' ? styles.tabActive : ''}`}
-            onClick={() => onNavigate('form')}
-            id="nav-log"
-          >
-            <PlusIcon /> Log Complaint
-          </button>
+          {/* Log Complaint — Standard user only */}
+          {!isAdmin && (
+            <button
+              role="tab"
+              aria-selected={activeView === 'form'}
+              className={`${styles.tab} ${activeView === 'form' ? styles.tabActive : ''}`}
+              onClick={() => onNavigate('form')}
+              id="nav-log"
+            >
+              <PlusIcon /> Log Complaint
+            </button>
+          )}
         </div>
 
-        {/* Right side */}
+        {/* Right side: Role switcher + env badge + avatar */}
         <div className={styles.right}>
           <span className={styles.env}>DEV</span>
-          <div className={styles.avatar} title="QA Officer (placeholder)">QA</div>
+
+          {/* Role selector */}
+          <div className={styles.roleSwitcher}>
+            <label htmlFor="role-select" className={styles.roleLabel}>Role:</label>
+            <select
+              id="role-select"
+              className={styles.roleSelect}
+              value={role}
+              onChange={(e) => onRoleChange(e.target.value)}
+              aria-label="Switch active role"
+            >
+              <option value="admin">Admin</option>
+              <option value="user">Standard User</option>
+            </select>
+          </div>
+
+          {/* Avatar */}
+          <div
+            className={`${styles.avatar} ${isAdmin ? styles.avatarAdmin : styles.avatarUser}`}
+            title={isAdmin ? 'Admin' : 'Standard User'}
+          >
+            {isAdmin ? 'AD' : 'US'}
+          </div>
         </div>
       </div>
     </nav>

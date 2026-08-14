@@ -25,7 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.agents.graph import run_complaint_pipeline
-from app.api.deps import get_actor, get_complaint_or_404
+from app.api.deps import get_actor, get_complaint_or_404, require_admin
 from app.core.audit import write_audit_log
 from app.db.session import get_db
 from app.models.ai_assessment import AIAssessment
@@ -86,6 +86,7 @@ _SEVERITY_MAP: dict[str, Severity] = {
         201: {"description": "AI assessment completed and saved successfully."},
         404: {"description": "Complaint not found."},
     },
+    dependencies=[Depends(require_admin)],
 )
 async def run_assessment(
     complaint_id: int,

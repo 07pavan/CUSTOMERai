@@ -38,6 +38,8 @@ SQLAlchemy 2.0 patterns used
 
 import os
 import tempfile
+from datetime import datetime, timezone
+from typing import Annotated
 from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Query, UploadFile, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -51,6 +53,7 @@ from app.core.extraction import (
     extract_text_from_pdf,
     extract_text_from_txt,
 )
+from app.api.deps import require_admin, require_user
 from app.db.session import generate_complaint_number, get_db
 from app.models.complaint import Complaint
 from app.models.enums import Category, Status
@@ -128,6 +131,7 @@ async def _get_complaint_or_404(
         "The complaint_number is auto-generated (CMP-YYYY-NNNN). "
         "Severity starts as NULL until the AI triage agent runs."
     ),
+    dependencies=[Depends(require_user)],
 )
 async def create_complaint(
     payload: ComplaintCreate,
@@ -301,6 +305,7 @@ async def get_complaint(
         "`complaint_number`, `id`, and `created_at` are immutable. "
         "Every successful update writes an audit log entry detailing the before/after values."
     ),
+    dependencies=[Depends(require_admin)],
 )
 async def update_complaint(
     complaint_id: int,
@@ -398,6 +403,7 @@ async def update_complaint(
         "runs the intake_parser AI node (gemma2-9b-it), and returns extracted form fields "
         "to pre-fill the intake form without writing to the database."
     ),
+    dependencies=[Depends(require_user)],
 )
 async def extract_intake_fields(
     file: Optional[UploadFile] = File(None),

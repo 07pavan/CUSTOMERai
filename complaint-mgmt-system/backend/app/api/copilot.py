@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.graph import apply_correction, run_complaint_pipeline
 from app.agents.llm import acall_llama
-from app.api.deps import get_actor
+from app.api.deps import get_actor, require_user
 from app.core.audit import write_audit_log
 from app.core.extraction import extract_text
 from app.core.storage import UPLOAD_ROOT, save_upload
@@ -46,6 +46,7 @@ router = APIRouter(prefix="/copilot", tags=["AI Copilot"])
     "/message",
     summary="Process a copilot chat message or field correction",
     response_model=None,
+    dependencies=[Depends(require_user)],
 )
 async def process_copilot_message(
     payload: CopilotMessageRequest,
@@ -275,6 +276,7 @@ async def process_copilot_message(
     "/upload",
     summary="Upload document and run intake or field correction via copilot",
     response_model=None,
+    dependencies=[Depends(require_user)],
 )
 async def upload_copilot_document(
     file: UploadFile = File(...),

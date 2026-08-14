@@ -2,7 +2,6 @@ import { useState, useCallback } from 'react';
 import { useAppDispatch, useAppSelector } from '../../app/hooks';
 import {
   updateField,
-  populateFromAi,
   resetForm,
   selectFormValues,
   selectAiFilledFields,
@@ -38,16 +37,6 @@ const BoxIcon = () => (
 const TagIcon = () => (
   <svg className={styles.sectionIcon} viewBox="0 0 16 16" fill="currentColor">
     <path d="M2 2a1 1 0 0 1 1-1h4.586a1 1 0 0 1 .707.293l7 7a1 1 0 0 1 0 1.414l-4.586 4.586a1 1 0 0 1-1.414 0l-7-7A1 1 0 0 1 2 6.586V2zm3.5 4a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"/>
-  </svg>
-);
-const DocIcon = () => (
-  <svg className={styles.sectionIcon} viewBox="0 0 16 16" fill="currentColor">
-    <path d="M5 4a.5.5 0 0 0 0 1h6a.5.5 0 0 0 0-1H5zm-.5 2.5A.5.5 0 0 1 5 6h6a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5zM5 8a.5.5 0 0 0 0 1h3a.5.5 0 0 0 0-1H5z"/>
-  </svg>
-);
-const FactoryIcon = () => (
-  <svg className={styles.sectionIcon} viewBox="0 0 16 16" fill="currentColor">
-    <path d="M.5 0a.5.5 0 0 0-.5.5v15a.5.5 0 0 0 .5.5h15a.5.5 0 0 0 .5-.5V.5a.5.5 0 0 0-.5-.5H.5zM1 1.5h14v13H1v-13z"/>
   </svg>
 );
 const SendIcon = () => (
@@ -95,6 +84,7 @@ export default function ComplaintForm({ onSuccess, showToast }) {
   const copilotComplaintId = useAppSelector(selectCopilotComplaintId);
 
   const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [createComplaint, { isLoading: isCreating }] = useCreateComplaintMutation();
   const [updateComplaint, { isLoading: isUpdating }] = useUpdateComplaintMutation();
@@ -129,11 +119,14 @@ export default function ComplaintForm({ onSuccess, showToast }) {
   /* ─── Submit ─── */
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting || isLoading) return;
+
     if (!validate()) {
       showToast({ type: 'error', message: 'Please fix the highlighted fields before committing to QMS Ledger.' });
       return;
     }
 
+    setIsSubmitting(true);
     try {
       const payload = {
         complaint_source:       form.complaint_source,
@@ -180,6 +173,8 @@ export default function ComplaintForm({ onSuccess, showToast }) {
         type: 'error',
         message: err.data ?? 'Failed to commit complaint. Please try again.',
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -505,7 +500,7 @@ export default function ComplaintForm({ onSuccess, showToast }) {
                 type="button"
                 className={styles.btnGhost}
                 onClick={handleClear}
-                disabled={isLoading}
+                disabled={isLoading || isSubmitting}
               >
                 Clear Form
               </button>
@@ -513,9 +508,9 @@ export default function ComplaintForm({ onSuccess, showToast }) {
                 type="submit"
                 id="submit-complaint-btn"
                 className={styles.btnPrimary}
-                disabled={isLoading}
+                disabled={isLoading || isSubmitting}
               >
-                {isLoading ? (
+                {isLoading || isSubmitting ? (
                   <><span className={styles.spinner} /> Committing…</>
                 ) : (
                   <><SendIcon /> Commit to QMS Ledger</>
