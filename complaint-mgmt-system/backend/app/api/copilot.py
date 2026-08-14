@@ -105,7 +105,6 @@ def _sync_manual_form_edits(complaint: Complaint, manual_fields: Optional[Dict[s
         "if `complaint_id` is null, runs intake triage pipeline; "
         "if `complaint_id` is provided, syncs manual form edits, runs corrections, or answers QA queries."
     ),
-    dependencies=[Depends(require_user)],
 )
 async def process_copilot_message(
     payload: CopilotMessageRequest,
@@ -231,122 +230,118 @@ async def process_copilot_message(
     # Case B: complaint_id IS NULL ➔ decide between chat vs. intake pipeline
     # -----------------------------------------------------------------------
 
-    # Pure greeting / no-data message → welcome reply, with awareness of manual form values
-    if _is_greeting_message(payload.message):
-        reply = await _generate_initial_reply(
-            user_message=payload.message,
-            chat_history=[
-                {"role": m.role, "content": m.content}
-                for m in (payload.chat_history or [])
-            ],
-            current_form=payload.current_form_fields,
+    # Check if the user is confirming or referencing a previous message with complaint data:
+    target_intake_text = payload.message
+    if not _has_complaint_substance(target_intake_text) and payload.chat_history:
+        for turn in reversed(payload.chat_history):
+            if turn.role == "user" and _has_complaint_substance(turn.content):
+                target_intake_text = turn.content + "\n" + payload.message
+                break
+
+    # If the message (or referenced history) contains complaint details ➔ RUN INTAKE PIPELINE!
+    if _has_complaint_substance(target_intake_text):
+        pipeline_res = await run_complaint_pipeline(raw_text=target_intake_text, db_session=db)
+
+        extracted = pipeline_res.get("extracted_fields") or {}
+        sev = pipeline_res.get("severity") or pipeline_res.get("risk_level") or "major"
+        next_action = pipeline_res.get("suggested_next_action") or "Initiate QA investigation."
+        risk_assessment = pipeline_res.get("initial_risk_assessment") or pipeline_res.get("risk_rationale") or "Standard QA review."
+
+        complaint_num = await generate_complaint_number(db)
+
+        complaint = Complaint(
+            complaint_number=complaint_num,
+            complaint_source=extracted.get("complaint_source") or "email",
+            customer_name=extracted.get("customer_name") or "Anonymous Reporter",
+            complainant_contact=extracted.get("complainant_contact"),
+            product_name=extracted.get("product_name") or "Unspecified Product",
+            product_strength=extracted.get("product_strength"),
+            batch_no=(extracted.get("batch_no") or "UNKNOWN").upper(),
+            affected_quantity=extracted.get("affected_quantity"),
+            manufacturing_date=_parse_date_safe(extracted.get("manufacturing_date")),
+            expiry_date=_parse_date_safe(extracted.get("expiry_date")),
+            originating_site_block=extracted.get("originating_site_block"),
+            impacted_npm=extracted.get("impacted_npm"),
+            complaint_category=extracted.get("complaint_category") or "quality",
+            complaint_description=extracted.get("complaint_description") or target_intake_text,
+            severity=sev,
+            suggested_next_action=next_action,
+            initial_risk_assessment=risk_assessment,
+            status="ready_to_commit",
         )
-        return CopilotNewComplaintResponse(reply_text=reply)
+        db.add(complaint)
+        await db.flush()
 
-    # Conversational questions, requests, or instructions (not new complaint intake text)
-    if _is_conversational_query(payload.message) or not _has_complaint_substance(payload.message):
-        reply = await _generate_initial_reply(
-            user_message=payload.message,
-            chat_history=[
-                {"role": m.role, "content": m.content}
-                for m in (payload.chat_history or [])
-            ],
-            current_form=payload.current_form_fields,
+        ai_assessment = AIAssessment(
+            complaint_id=complaint.id,
+            risk_level=_sev_to_risk_level(sev),
+            risk_rationale=risk_assessment,
+            completeness_flags=pipeline_res.get("completeness_flags") or [],
+            root_cause_suggestion=pipeline_res.get("root_cause_suggestion"),
+            capa_suggestion=pipeline_res.get("capa_suggestion"),
+            summary=pipeline_res.get("summary"),
+            raw_llm_output={"pipeline_state": pipeline_res},
         )
-        return CopilotNewComplaintResponse(reply_text=reply)
+        db.add(ai_assessment)
+        await db.flush()
 
-    # Has real complaint data → run the full triage pipeline
-    pipeline_res = await run_complaint_pipeline(raw_text=payload.message, db_session=db)
+        await write_audit_log(
+            db,
+            complaint_id=complaint.id,
+            action="ai_extraction",
+            actor=actor,
+            details={
+                "session_id": payload.session_id,
+                "complaint_number": complaint.complaint_number,
+                "product_name": complaint.product_name,
+                "severity": complaint.severity,
+            },
+        )
+        await db.commit()
+        await db.refresh(complaint)
 
-    extracted = pipeline_res.get("extracted_fields") or {}
-    sev = pipeline_res.get("severity") or pipeline_res.get("risk_level") or "major"
-    next_action = pipeline_res.get("suggested_next_action") or "Initiate QA investigation."
-    risk_assessment = pipeline_res.get("initial_risk_assessment") or pipeline_res.get("risk_rationale") or "Standard QA review."
-
-    complaint_num = await generate_complaint_number(db)
-
-    complaint = Complaint(
-        complaint_number=complaint_num,
-        complaint_source=extracted.get("complaint_source") or "email",
-        customer_name=extracted.get("customer_name") or "Anonymous Reporter",
-        complainant_contact=extracted.get("complainant_contact"),
-        product_name=extracted.get("product_name") or "Unspecified Product",
-        product_strength=extracted.get("product_strength"),
-        batch_no=(extracted.get("batch_no") or "UNKNOWN").upper(),
-        affected_quantity=extracted.get("affected_quantity"),
-        manufacturing_date=_parse_date_safe(extracted.get("manufacturing_date")),
-        expiry_date=_parse_date_safe(extracted.get("expiry_date")),
-        originating_site_block=extracted.get("originating_site_block"),
-        impacted_npm=extracted.get("impacted_npm"),
-        complaint_category=extracted.get("complaint_category") or "quality",
-        complaint_description=extracted.get("complaint_description") or payload.message,
-        severity=sev,
-        suggested_next_action=next_action,
-        initial_risk_assessment=risk_assessment,
-        status="ready_to_commit",
-    )
-    db.add(complaint)
-    await db.flush()
-
-    # Save AI Assessment record
-    ai_assessment = AIAssessment(
-        complaint_id=complaint.id,
-        risk_level=_sev_to_risk_level(sev),
-        risk_rationale=risk_assessment,
-        completeness_flags=pipeline_res.get("completeness_flags"),
-        root_cause_suggestion=pipeline_res.get("root_cause_suggestion"),
-        capa_suggestion=pipeline_res.get("capa_suggestion"),
-        summary=pipeline_res.get("summary"),
-        raw_llm_output={"pipeline_state": pipeline_res},
-    )
-    db.add(ai_assessment)
-    await db.flush()
-
-    await write_audit_log(
-        db,
-        complaint_id=complaint.id,
-        action="ai_extraction",
-        actor=actor,
-        details={
-            "session_id": payload.session_id,
-            "complaint_number": complaint_num,
+        full_extracted = {
+            "complaint_source": complaint.complaint_source,
+            "customer_name": complaint.customer_name,
+            "complainant_contact": complaint.complainant_contact,
             "product_name": complaint.product_name,
-            "severity": sev,
-        },
+            "product_strength": complaint.product_strength,
+            "batch_no": complaint.batch_no,
+            "affected_quantity": complaint.affected_quantity,
+            "manufacturing_date": str(complaint.manufacturing_date) if complaint.manufacturing_date else extracted.get("manufacturing_date"),
+            "expiry_date": str(complaint.expiry_date) if complaint.expiry_date else extracted.get("expiry_date"),
+            "originating_site_block": complaint.originating_site_block,
+            "impacted_npm": complaint.impacted_npm,
+            "complaint_category": complaint.complaint_category,
+            "complaint_description": complaint.complaint_description,
+            "severity": complaint.severity,
+            "suggested_next_action": complaint.suggested_next_action,
+            "initial_risk_assessment": complaint.initial_risk_assessment,
+        }
+
+        reply_text = _build_intake_reply(complaint, complaint.complaint_number, sev, next_action, risk_assessment)
+
+        return CopilotNewComplaintResponse(
+            complaint_id=complaint.id,
+            complaint_number=complaint.complaint_number,
+            extracted_fields=full_extracted,
+            severity=sev,
+            suggested_next_action=next_action,
+            initial_risk_assessment=risk_assessment,
+            reply_text=reply_text,
+        )
+
+    # Pure greeting / question / non-complaint conversational query:
+    reply = await _generate_initial_reply(
+        user_message=payload.message,
+        chat_history=[
+            {"role": m.role, "content": m.content}
+            for m in (payload.chat_history or [])
+        ],
+        current_form=payload.current_form_fields,
     )
-    await db.commit()
-    await db.refresh(complaint)
+    return CopilotNewComplaintResponse(reply_text=reply)
 
-    full_extracted = {
-        "complaint_source": complaint.complaint_source,
-        "customer_name": complaint.customer_name,
-        "complainant_contact": complaint.complainant_contact,
-        "product_name": complaint.product_name,
-        "product_strength": complaint.product_strength,
-        "batch_no": complaint.batch_no,
-        "affected_quantity": complaint.affected_quantity,
-        "manufacturing_date": str(complaint.manufacturing_date) if complaint.manufacturing_date else extracted.get("manufacturing_date"),
-        "expiry_date": str(complaint.expiry_date) if complaint.expiry_date else extracted.get("expiry_date"),
-        "originating_site_block": complaint.originating_site_block,
-        "impacted_npm": complaint.impacted_npm,
-        "complaint_category": complaint.complaint_category,
-        "complaint_description": complaint.complaint_description,
-        "severity": complaint.severity,
-        "suggested_next_action": complaint.suggested_next_action,
-        "initial_risk_assessment": complaint.initial_risk_assessment,
-    }
-
-    reply_text = _build_intake_reply(complaint, complaint_num, sev, next_action, risk_assessment)
-
-    return CopilotNewComplaintResponse(
-        complaint_id=complaint.id,
-        complaint_number=complaint_num,
-        extracted_fields=full_extracted,
-        severity=sev,
-        suggested_next_action=next_action,
-        initial_risk_assessment=risk_assessment,
-        reply_text=reply_text,
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -356,7 +351,6 @@ async def process_copilot_message(
     "/upload",
     summary="Upload document and run intake or field correction via copilot",
     response_model=None,
-    dependencies=[Depends(require_user)],
 )
 async def upload_copilot_document(
     file: UploadFile = File(...),

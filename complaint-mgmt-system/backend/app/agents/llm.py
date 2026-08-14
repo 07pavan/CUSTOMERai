@@ -152,8 +152,7 @@ def call_llama(
     max_tokens: int = 4096,
 ) -> str:
     """
-    Synchronous call to Llama 3.3 70B Versatile (Large model).
-    Best for complex pharma risk evaluation, CAPA suggestions, and synthesis.
+    Synchronous call to Llama 3.3 70B Versatile with automatic 8B fallback.
     """
     client = get_groq_client()
     messages = []
@@ -162,13 +161,25 @@ def call_llama(
     messages.append({"role": "user", "content": prompt})
 
     def _do():
-        response = client.chat.completions.create(
-            model=settings.GROQ_MODEL_LARGE,
-            messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-        )
-        return response.choices[0].message.content or ""
+        try:
+            response = client.chat.completions.create(
+                model=settings.GROQ_MODEL_LARGE,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+            return response.choices[0].message.content or ""
+        except Exception as exc:
+            if "429" in str(exc) or "rate_limit" in str(exc).lower():
+                logger.warning("70B rate limited (%s). Fallback to llama-3.1-8b-instant.", exc)
+                fallback_res = client.chat.completions.create(
+                    model="llama-3.1-8b-instant",
+                    messages=messages,
+                    temperature=temperature,
+                    max_tokens=min(max_tokens, 2048),
+                )
+                return fallback_res.choices[0].message.content or ""
+            raise
 
     return _call_with_retry(_do)
 
@@ -180,7 +191,7 @@ async def acall_llama(
     max_tokens: int = 4096,
 ) -> str:
     """
-    Asynchronous call to Llama 3.3 70B Versatile (Large model).
+    Asynchronous call to Llama 3.3 70B Versatile with automatic 8B fallback.
     """
     client = get_async_groq_client()
     messages = []
@@ -189,13 +200,25 @@ async def acall_llama(
     messages.append({"role": "user", "content": prompt})
 
     async def _ado():
-        response = await client.chat.completions.create(
-            model=settings.GROQ_MODEL_LARGE,
-            messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-        )
-        return response.choices[0].message.content or ""
+        try:
+            response = await client.chat.completions.create(
+                model=settings.GROQ_MODEL_LARGE,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+            return response.choices[0].message.content or ""
+        except Exception as exc:
+            if "429" in str(exc) or "rate_limit" in str(exc).lower():
+                logger.warning("70B rate limited (%s). Fallback to llama-3.1-8b-instant.", exc)
+                fallback_res = await client.chat.completions.create(
+                    model="llama-3.1-8b-instant",
+                    messages=messages,
+                    temperature=temperature,
+                    max_tokens=min(max_tokens, 2048),
+                )
+                return fallback_res.choices[0].message.content or ""
+            raise
 
     return await _acall_with_retry(_ado)
 
