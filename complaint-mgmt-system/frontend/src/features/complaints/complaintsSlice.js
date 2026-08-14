@@ -43,8 +43,10 @@ import { createSlice } from '@reduxjs/toolkit';
 const initialState = {
   /** Active filter values — null means "no filter applied" */
   filters: {
-    status: null,    // one of: 'new' | 'under_investigation' | 'capa_assigned' | 'closed' | null
-    category: null,  // one of: 'quality' | 'adverse_event' | 'counterfeit' | 'other' | null
+    status: null,    // 'new' | 'ready_to_commit' | 'under_investigation' | 'capa_assigned' | 'closed' | null
+    category: null,  // 'quality' | 'adverse_event' | 'counterfeit' | 'other' | null
+    severity: null,  // 'critical' | 'major' | 'minor' | 'unassessed' | null
+    search: '',      // search term for product, batch, reporter, or complaint #
   },
 
   /** Pagination state — drives query args passed to fetchComplaints */
@@ -70,7 +72,6 @@ const complaintsSlice = createSlice({
     /** Set the status filter. Pass null to clear. */
     setStatusFilter(state, action) {
       state.filters.status = action.payload;
-      // Reset to page 1 when filters change — avoids "page 5 of 0 results"
       state.pagination.page = 1;
     },
 
@@ -80,9 +81,21 @@ const complaintsSlice = createSlice({
       state.pagination.page = 1;
     },
 
+    /** Set the severity filter. Pass null to clear. */
+    setSeverityFilter(state, action) {
+      state.filters.severity = action.payload;
+      state.pagination.page = 1;
+    },
+
+    /** Set the search filter. */
+    setSearchFilter(state, action) {
+      state.filters.search = action.payload;
+      state.pagination.page = 1;
+    },
+
     /** Clear all active filters and return to page 1. */
     clearFilters(state) {
-      state.filters = initialState.filters;
+      state.filters = { ...initialState.filters };
       state.pagination.page = 1;
     },
 
@@ -119,6 +132,8 @@ const complaintsSlice = createSlice({
 export const {
   setStatusFilter,
   setCategoryFilter,
+  setSeverityFilter,
+  setSearchFilter,
   clearFilters,
   setPage,
   setPageSize,
@@ -142,10 +157,6 @@ export const selectSelectedId = (state) => state.complaints.selectedId;
 /**
  * Convenience selector: returns the full query args object to be spread into
  * useFetchComplaintsQuery(). Combines filters + pagination into one object.
- *
- * Usage in a component:
- *   const queryArgs = useSelector(selectComplaintsQueryArgs);
- *   const { data, isLoading } = useFetchComplaintsQuery(queryArgs);
  *
  * @param {import('../../app/store').RootState} state
  */

@@ -134,32 +134,32 @@ async def get_analytics_summary(
     # -----------------------------------------------------------------------
     # 4. Trends Over Time (Daily Buckets)
     # -----------------------------------------------------------------------
-    # Query daily counts within cutoff_date
-    date_col = cast(Complaint.created_at, Date)
     trend_stmt = (
-        select(
-            date_col.label("cdate"),
-            func.count(Complaint.id).label("total_cnt"),
-            func.sum(case((Complaint.severity == Severity.critical, 1), else_=0)).label("crit_cnt"),
-            func.sum(case((Complaint.severity == Severity.major, 1), else_=0)).label("maj_cnt"),
-            func.sum(case((Complaint.severity == Severity.minor, 1), else_=0)).label("min_cnt"),
-        )
+        select(Complaint.created_at, Complaint.severity)
         .where(Complaint.created_at >= cutoff_date)
-        .group_by(date_col)
-        .order_by(date_col.asc())
     )
-    trend_results = await db.execute(trend_stmt)
-    trend_map: Dict[str, TrendDataPoint] = {}
+    trend_rows = await db.execute(trend_stmt)
+    
+    trend_map: Dict[str, Dict[str, int]] = {}
+    for created_at_val, sev_val in trend_rows:
+        if isinstance(created_at_val, str):
+            dt_str = created_at_val[:10]
+        elif hasattr(created_at_val, "strftime"):
+            dt_str = created_at_val.strftime("%Y-%m-%d")
+        else:
+            dt_str = str(created_at_val)[:10]
 
-    for row in trend_results:
-        dt_str = row.cdate.isoformat() if hasattr(row.cdate, "isoformat") else str(row.cdate)
-        trend_map[dt_str] = TrendDataPoint(
-            date=dt_str,
-            critical=int(row.crit_cnt or 0),
-            major=int(row.maj_cnt or 0),
-            minor=int(row.min_cnt or 0),
-            total=int(row.total_cnt or 0),
-        )
+        if dt_str not in trend_map:
+            trend_map[dt_str] = {"critical": 0, "major": 0, "minor": 0, "total": 0}
+        
+        trend_map[dt_str]["total"] += 1
+        sev_str = sev_val.value if hasattr(sev_val, "value") else str(sev_val or "")
+        if sev_str == "critical":
+            trend_map[dt_str]["critical"] += 1
+        elif sev_str == "major":
+            trend_map[dt_str]["major"] += 1
+        elif sev_str == "minor":
+            trend_map[dt_str]["minor"] += 1
 
     # Build continuous daily timeline for smooth chart rendering
     timeline: List[TrendDataPoint] = []
@@ -169,10 +169,14 @@ async def get_analytics_summary(
     curr_day = start_day
     while curr_day <= today:
         dt_str = curr_day.isoformat()
-        if dt_str in trend_map:
-            timeline.append(trend_map[dt_str])
-        else:
-            timeline.append(TrendDataPoint(date=dt_str, critical=0, major=0, minor=0, total=0))
+        counts = trend_map.get(dt_str, {"critical": 0, "major": 0, "minor": 0, "total": 0})
+        timeline.append(TrendDataPoint(
+            date=dt_str,
+            critical=counts["critical"],
+            major=counts["major"],
+            minor=counts["minor"],
+            total=counts["total"],
+        ))
         curr_day += timedelta(days=1)
 
     return AnalyticsSummaryResponse(

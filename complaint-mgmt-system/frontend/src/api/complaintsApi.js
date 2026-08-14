@@ -119,12 +119,14 @@ export const complaintsApi = createApi({
        * @param {number} [args.page]      - 1-indexed page number
        * @param {number} [args.pageSize]  - Items per page (max 100)
        */
-      query: ({ status, category, page = 1, pageSize = 20 } = {}) => ({
+      query: ({ status, category, severity, search, page = 1, pageSize = 20 } = {}) => ({
         url: '/api/v1/complaints',
         params: {
           // Only include params that are actually set — avoids ?status=undefined
           ...(status   && { status }),
           ...(category && { category }),
+          ...(severity && { severity }),
+          ...(search && search.trim() && { search: search.trim() }),
           page,
           page_size: pageSize,  // FastAPI param name uses snake_case
         },

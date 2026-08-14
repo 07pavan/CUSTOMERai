@@ -6,6 +6,8 @@ import {
   selectComplaintsQueryArgs,
   setStatusFilter,
   setCategoryFilter,
+  setSeverityFilter,
+  setSearchFilter,
   clearFilters,
   setPage,
 } from './complaintsSlice';
@@ -15,7 +17,6 @@ import styles from './ComplaintList.module.css';
 /* ─── Helpers ─── */
 const STATUS_LABELS = {
   new: 'New',
-  pending_triage: 'Pending Triage',
   ready_to_commit: 'Ready to Commit',
   under_investigation: 'Under Investigation',
   capa_assigned: 'CAPA Assigned',
@@ -33,11 +34,11 @@ const SEVERITY_LABELS = {
   critical: 'Critical',
   major: 'Major',
   minor: 'Minor',
+  unassessed: 'Pending AI',
 };
 
 const STATUS_STYLE = {
   new:                 styles.statusNew,
-  pending_triage:      styles.severityPending,
   ready_to_commit:     styles.statusNew,
   under_investigation: styles.statusUnder_investigation,
   capa_assigned:       styles.statusCapa_assigned,
@@ -52,6 +53,7 @@ const SEVERITY_STYLE = {
 
 const STATUS_OPTIONS = [
   { value: 'new',                 label: 'New' },
+  { value: 'ready_to_commit',     label: 'Ready to Commit' },
   { value: 'under_investigation', label: 'Under Investigation' },
   { value: 'capa_assigned',       label: 'CAPA Assigned' },
   { value: 'closed',              label: 'Closed' },
@@ -141,6 +143,12 @@ const ArrowRight = () => (
   </svg>
 );
 
+const SearchIcon = () => (
+  <svg viewBox="0 0 16 16" fill="currentColor" width="13" height="13" className={styles.searchIcon}>
+    <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+  </svg>
+);
+
 const FilterIcon = () => (
   <svg viewBox="0 0 16 16" fill="currentColor" width="13" height="13" style={{ opacity: 0.5 }}>
     <path d="M6 10.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5z"/>
@@ -170,7 +178,7 @@ export default function ComplaintList({ onViewComplaint, isAdmin = true }) {
   // Track which complaint IDs are currently being updated inline
   const [updatingIds, setUpdatingIds] = useState(new Set());
 
-  const hasFilters = filters.status || filters.category;
+  const hasFilters = Boolean(filters.status || filters.category || filters.severity || (filters.search && filters.search.trim()));
   const totalPages = data ? Math.ceil(data.total / pagination.pageSize) : 0;
 
   const handleInlineStatusChange = async (id, newStatus) => {
@@ -193,15 +201,36 @@ export default function ComplaintList({ onViewComplaint, isAdmin = true }) {
       {/* ── Page header ── */}
       <div className={styles.pageHeader}>
         <div>
-          <h1 className={styles.pageTitle}>Complaints</h1>
+          <h1 className={styles.pageTitle}>Complaints Management</h1>
           <p className={styles.pageSubtitle}>
-            Manage and track all incoming product quality complaints.
+            Review, filter, triage, and manage product quality records from the QMS ledger.
           </p>
         </div>
       </div>
 
       {/* ── Filter bar ── */}
       <div className={styles.filterBar}>
+        {/* Search Box */}
+        <div className={styles.searchInputWrapper}>
+          <SearchIcon />
+          <input
+            type="text"
+            className={styles.searchInput}
+            placeholder="Search product, batch, reporter, ref #…"
+            value={filters.search ?? ''}
+            onChange={(e) => dispatch(setSearchFilter(e.target.value))}
+          />
+          {filters.search && (
+            <button
+              className={styles.clearSearchBtn}
+              onClick={() => dispatch(setSearchFilter(''))}
+              title="Clear search"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+
         <FilterIcon />
         <span className={styles.filterLabel}>Filter:</span>
 
@@ -214,6 +243,7 @@ export default function ComplaintList({ onViewComplaint, isAdmin = true }) {
         >
           <option value="">All Statuses</option>
           <option value="new">New</option>
+          <option value="ready_to_commit">Ready to Commit</option>
           <option value="under_investigation">Under Investigation</option>
           <option value="capa_assigned">CAPA Assigned</option>
           <option value="closed">Closed</option>
@@ -231,6 +261,20 @@ export default function ComplaintList({ onViewComplaint, isAdmin = true }) {
           <option value="adverse_event">Adverse Event</option>
           <option value="counterfeit">Counterfeit</option>
           <option value="other">Other</option>
+        </select>
+
+        <select
+          id="filter-severity"
+          className={styles.filterSelect}
+          value={filters.severity ?? ''}
+          onChange={(e) => dispatch(setSeverityFilter(e.target.value || null))}
+          aria-label="Filter by severity"
+        >
+          <option value="">All Severities</option>
+          <option value="critical">Critical</option>
+          <option value="major">Major</option>
+          <option value="minor">Minor</option>
+          <option value="unassessed">Pending AI</option>
         </select>
 
         {hasFilters && (

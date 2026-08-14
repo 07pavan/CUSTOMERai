@@ -3,6 +3,13 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar, Cell, PieChart, Pie, Legend,
 } from 'recharts';
+import { useAppDispatch } from '../../app/hooks';
+import {
+  clearFilters,
+  setSeverityFilter,
+  setStatusFilter,
+  setCategoryFilter,
+} from '../complaints/complaintsSlice';
 import { useFetchAnalyticsSummaryQuery } from '../../api/complaintsApi';
 import styles from './Dashboard.module.css';
 
@@ -35,10 +42,25 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 /**
  * Dashboard — Pharmaceutical Quality Analytics & Complaint Trend View.
+ * @param {{ onNavigate?: (view: string) => void }} props
  */
-export default function Dashboard() {
+export default function Dashboard({ onNavigate }) {
+  const dispatch = useAppDispatch();
   const [days, setDays] = useState(30);
   const { data: analytics, isLoading, isError } = useFetchAnalyticsSummaryQuery(days);
+
+  const handleKpiClick = (type) => {
+    if (!onNavigate) return;
+    dispatch(clearFilters());
+    if (type === 'critical') {
+      dispatch(setSeverityFilter('critical'));
+    } else if (type === 'investigation') {
+      dispatch(setStatusFilter('under_investigation'));
+    } else if (type === 'unassessed') {
+      dispatch(setSeverityFilter('unassessed'));
+    }
+    onNavigate('list');
+  };
 
   if (isLoading) {
     return (
@@ -102,35 +124,59 @@ export default function Dashboard() {
 
       {/* ── KPI Metric Cards ── */}
       <div className={styles.kpiGrid}>
-        <div className={styles.kpiCard}>
+        <div
+          className={styles.kpiCard}
+          onClick={() => handleKpiClick('total')}
+          title="Click to view all complaints"
+          role="button"
+          tabIndex={0}
+        >
           <div className={styles.kpiLabel}>Total Intake Complaints</div>
           <div className={styles.kpiValueRow}>
             <div className={styles.kpiValue}>{total_complaints}</div>
-            <span className={`${styles.kpiTag} ${styles.kpiMinor}`}>All Time</span>
+            <span className={`${styles.kpiTag} ${styles.kpiMinor}`}>All Time ↗</span>
           </div>
         </div>
 
-        <div className={styles.kpiCard}>
+        <div
+          className={styles.kpiCard}
+          onClick={() => handleKpiClick('critical')}
+          title="Click to view Critical complaints"
+          role="button"
+          tabIndex={0}
+        >
           <div className={styles.kpiLabel}>Critical Severity Defect</div>
           <div className={styles.kpiValueRow}>
             <div className={styles.kpiValue}>{critical_count}</div>
-            <span className={`${styles.kpiTag} ${styles.kpiCritical}`}>High Risk</span>
+            <span className={`${styles.kpiTag} ${styles.kpiCritical}`}>High Risk ↗</span>
           </div>
         </div>
 
-        <div className={styles.kpiCard}>
+        <div
+          className={styles.kpiCard}
+          onClick={() => handleKpiClick('investigation')}
+          title="Click to view Active Investigations"
+          role="button"
+          tabIndex={0}
+        >
           <div className={styles.kpiLabel}>Active Investigations</div>
           <div className={styles.kpiValueRow}>
             <div className={styles.kpiValue}>{active_investigations}</div>
-            <span className={`${styles.kpiTag} ${styles.kpiMajor}`}>Open QA</span>
+            <span className={`${styles.kpiTag} ${styles.kpiMajor}`}>Open QA ↗</span>
           </div>
         </div>
 
-        <div className={styles.kpiCard}>
+        <div
+          className={styles.kpiCard}
+          onClick={() => handleKpiClick('unassessed')}
+          title="Click to view Pending AI complaints"
+          role="button"
+          tabIndex={0}
+        >
           <div className={styles.kpiLabel}>Pending AI Triage</div>
           <div className={styles.kpiValueRow}>
             <div className={styles.kpiValue}>{unassessed_count}</div>
-            <span className={`${styles.kpiTag} ${styles.kpiPending}`}>Action Req</span>
+            <span className={`${styles.kpiTag} ${styles.kpiPending}`}>Action Req ↗</span>
           </div>
         </div>
       </div>

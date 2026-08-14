@@ -39,9 +39,9 @@ SQLAlchemy 2.0 patterns used
 import os
 import tempfile
 from datetime import datetime, timezone
-from typing import Annotated
+from typing import Annotated, Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Query, UploadFile, status
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -203,28 +203,38 @@ async def create_complaint(
 # GET /complaints — List complaints with filtering & pagination
 # ===========================================================================
 
+@router.get("", include_in_schema=False)
 @router.get(
     "/",
     response_model=ComplaintListResponse,
     summary="List complaints",
     description=(
         "Returns a paginated list of complaints. "
-        "Filter by `status` and/or `category` query parameters. "
+        "Filter by `status`, `category`, `severity`, and search query keyword. "
         "Does NOT include nested documents or assessments (use /{id} for that)."
     ),
 )
 async def list_complaints(
     db: AsyncSession = Depends(get_db),
     # --- Filters ---
-    status_filter: Optional[Status] = Query(
+    status_filter: Optional[str] = Query(
         None,
         alias="status",
         description="Filter by complaint lifecycle status.",
     ),
-    category_filter: Optional[Category] = Query(
+    category_filter: Optional[str] = Query(
         None,
         alias="category",
         description="Filter by complaint category.",
+    ),
+    severity_filter: Optional[str] = Query(
+        None,
+        alias="severity",
+        description="Filter by complaint severity (critical, major, minor, or unassessed).",
+    ),
+    search: Optional[str] = Query(
+        None,
+        description="Search across complaint number, product name, batch number, or customer name.",
     ),
     # --- Pagination ---
     page: int = Query(1, ge=1, description="Page number (1-indexed)."),
@@ -235,13 +245,33 @@ async def list_complaints(
     # ------------------------------------------------------------------ #
     # Build the base query                                                 #
     # ------------------------------------------------------------------ #
+    from sqlalchemy import or_
+
     base_stmt = select(Complaint)
 
-    if status_filter is not None:
+    if status_filter:
         base_stmt = base_stmt.where(Complaint.status == status_filter)
 
-    if category_filter is not None:
-        base_stmt = base_stmt.where(Complaint.category == category_filter)
+    if category_filter:
+        base_stmt = base_stmt.where(Complaint.complaint_category == category_filter)
+
+    if severity_filter:
+        if severity_filter.lower() in ("unassessed", "pending", "pending_ai", "null"):
+            base_stmt = base_stmt.where(Complaint.severity.is_(None))
+        else:
+            base_stmt = base_stmt.where(Complaint.severity == severity_filter)
+
+    if search and search.strip():
+        term = f"%{search.strip()}%"
+        base_stmt = base_stmt.where(
+            or_(
+                Complaint.complaint_number.ilike(term),
+                Complaint.product_name.ilike(term),
+                Complaint.batch_no.ilike(term),
+                Complaint.customer_name.ilike(term),
+                Complaint.complaint_description.ilike(term),
+            )
+        )
 
     # ------------------------------------------------------------------ #
     # Count total (before pagination) for the pagination envelope         #

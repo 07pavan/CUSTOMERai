@@ -1,0 +1,52 @@
+CALL CENTER CALL TRANSCRIPT — PHARMA SECURITY & QUALITY HOTLINE
+================================================================================
+CALL ID: CALL-2025-0522-1042
+DATE/TIME: May 22, 2025 | 03:45 PM EST
+CALL TAKEN BY: Representative Maria Davis (Badge #MD-712)
+CALL SOURCE: Direct Line — Medical Executive Office
+
+CALL DETAILS / PARTICIPANTS:
+--------------------------------------------------------------------------------
+Caller Name: Dr. Aris Thorne, MD
+Role: Director of Clinical Oncology Services
+Facility: Tri-State Cancer Center
+Phone Number: (555) 902-4411
+Email: athorne@tristate-oncology.com
+Address: 880 Bellevue Avenue, Suite 400, Seattle, WA 98801
+
+COMPLAINT INFORMATION:
+--------------------------------------------------------------------------------
+Product Name: Oncolox (Paclitaxel) Injection 100mg/16.7mL
+Batch / Lot Number: ONC-2025-001
+Labeled Expiration: 03/2027
+Wholesaler / Source: Secondary Distributor (Apex Pharma Logistics)
+
+TRANSCRIPT / SUMMARY OF CALL:
+--------------------------------------------------------------------------------
+[15:45:05] REP DAVIS: Quality & Product Integrity Hotline, Maria speaking. How can I help you?
+
+[15:45:18] DR. THORNE: Good afternoon. I need to report a suspected counterfeit packaging issue regarding a recent delivery of Oncolox 100mg IV infusion vials.
+
+[15:45:32] REP DAVIS: I take these reports very seriously, Doctor. Please tell me what raised suspicion about the product.
+
+[15:45:41] DR. THORNE: We received 10 cartons of Oncolox today from a secondary supplier because our primary distributor was backordered. When our oncology pharmacy team inspected the outer boxes, several discrepancies were immediately obvious compared to our standard inventory:
+1. The security hologram sticker on the top flap lacks the multi-color refraction pattern of authentic Oncolox cartons. It looks like a flat metallic foil print.
+2. The lot number printed on the carton side panel (ONC-2025-001) uses a different font typeface than usual, and the ink smudges easily when touched.
+3. The QR verification code on the back of the box returns an error ("URL Not Found") when scanned with a mobile device.
+
+[15:46:40] REP DAVIS: Thank you for these precise details, Dr. Thorne. Has any of this product been prepared or administered to any patient?
+
+[15:46:48] DR. THORNE: Absolutely not. The pharmacy flagged it immediately upon receipt and locked the entire shipment in our secure vault.
+
+[15:47:02] REP DAVIS: Excellent. Can you confirm the batch number and supplier name for my report?
+
+[15:47:09] DR. THORNE: Lot number is ONC-2025-001. Distributor on the invoice is Apex Pharma Logistics, Invoice #AP-994812.
+
+[15:47:28] REP DAVIS: Thank you. I am immediately escalating this to Global Brand Protection, Anti-Counterfeiting Taskforce, and Regulatory Affairs. Please do not return the shipment to Apex Logistics until our security team has inspected and secured high-resolution photographs and physical samples.
+
+SUMMARY OF ACTION:
+- Case reference # CMP-2025-0522 created.
+- Product: Oncolox 100mg Injection (Lot ONC-2025-001).
+- Category: Counterfeit / Falsified Product.
+- Status: Escalated to Brand Security & Legal. Product quarantined.
+================================================================================

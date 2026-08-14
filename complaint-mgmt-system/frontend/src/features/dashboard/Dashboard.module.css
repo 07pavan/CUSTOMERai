@@ -78,6 +78,14 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  cursor: pointer;
+  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+}
+
+.kpiCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+  border-color: hsl(220, 80%, 75%);
 }
 
 .kpiLabel {
