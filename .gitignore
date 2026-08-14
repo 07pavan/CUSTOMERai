@@ -11,13 +11,9 @@ env/
 # Database & Storage
 *.sqlite
 *.sqlite3
-complaint_db.sqlite
-complaint_qms.db
-complaints.db
+*.db
 backend/uploads/*
 !backend/uploads/.gitkeep
-complaint-mgmt-system/backend/uploads/*
-!complaint-mgmt-system/backend/uploads/.gitkeep
 
 # Build & Cache
 dist/
